@@ -19,6 +19,8 @@ HTTP Path | Description |
 
 In addition to the above endpoints Lighthouse also supports all of the [standard keymanager APIs](https://ethereum.github.io/keymanager-APIs/).
 
+The below demonstrates the command used to query the API and the response. You will need to replace the API token with the one in your node, see [Authorization Header](./api-vc-auth-header.md#obtaining-the-api-token).
+
 ## `GET /lighthouse/version`
 
 Returns the software version and `git` commit hash for the Lighthouse binary.
@@ -32,7 +34,13 @@ Returns the software version and `git` commit hash for the Lighthouse binary.
 | Required Headers  | [`Authorization`](./api-vc-auth-header.md) |
 | Typical Responses | 200                                        |
 
-### Example Response Body
+Command:
+```bash
+curl -X GET "http://localhost:5062/lighthouse/version" -H "Authorization: Bearer api-token-0x0359d0fa3a24b7f23d4aec5b957d8f4a0c7b0f2b7c78924148dfa0945769fcd520" | jq
+```
+
+Example Response Body:
+
 
 ```json
 {
@@ -57,24 +65,47 @@ Returns information regarding the health of the host machine.
 
 *Note: this endpoint is presently only available on Linux.*
 
-### Example Response Body
+Command:
+```bash
+url -X GET "http://localhost:5062/lighthouse/health" -H "Authorization: Bearer api-token-0x0359d0fa3a24b7f23d4aec5b957d8f4a0c7b0f2b7c78924148dfa0945769fcd520"
+```
+
+Example Response Body:
 
 ```json
 {
-    "data": {
-        "pid": 1476293,
-        "pid_num_threads": 19,
-        "pid_mem_resident_set_size": 4009984,
-        "pid_mem_virtual_memory_size": 1306775552,
-        "sys_virt_mem_total": 33596100608,
-        "sys_virt_mem_available": 23073017856,
-        "sys_virt_mem_used": 9346957312,
-        "sys_virt_mem_free": 22410510336,
-        "sys_virt_mem_percent": 31.322334,
-        "sys_loadavg_1": 0.98,
-        "sys_loadavg_5": 0.98,
-        "sys_loadavg_15": 1.01
-    }
+  "data": {
+    "sys_virt_mem_total": 8184274944,
+    "sys_virt_mem_available": 1532280832,
+    "sys_virt_mem_used": 6248341504,
+    "sys_virt_mem_free": 648790016,
+    "sys_virt_mem_percent": 81.27775,
+    "sys_virt_mem_cached": 1244770304,
+    "sys_virt_mem_buffers": 42373120,
+    "sys_loadavg_1": 2.33,
+    "sys_loadavg_5": 2.11,
+    "sys_loadavg_15": 2.47,
+    "cpu_cores": 4,
+    "cpu_threads": 8,
+    "system_seconds_total": 103095,
+    "user_seconds_total": 750734,
+    "iowait_seconds_total": 60671,
+    "idle_seconds_total": 3922305,
+    "cpu_time_total": 4794222,
+    "disk_node_bytes_total": 982820896768,
+    "disk_node_bytes_free": 521943703552,
+    "disk_node_reads_total": 376287830,
+    "disk_node_writes_total": 48232652,
+    "network_node_bytes_total_received": 143003442144,
+    "network_node_bytes_total_transmit": 185348289905,
+    "misc_node_boot_ts_seconds": 1681740973,
+    "misc_os": "linux",
+    "pid": 144072,
+    "pid_num_threads": 27,
+    "pid_mem_resident_set_size": 15835136,
+    "pid_mem_virtual_memory_size": 2179018752,
+    "pid_process_seconds_total": 54
+  }
 }
 ```
 
@@ -91,7 +122,12 @@ Returns information regarding the health of the host machine.
 | Required Headers  | [`Authorization`](./api-vc-auth-header.md) |
 | Typical Responses | 200                                        |
 
-### Example Response Body
+Command:
+```bash
+ curl -X GET "http://localhost:5062/lighthouse/ui/health" -H "Authorization: Bearer api-token-0x0359d0fa3a24b7f23d4aec5b957d8f4a0c7b0f2b7c78924148dfa0945769fcd520" | jq
+ ```
+
+Example Response Body
 
 ```json
 {
@@ -130,7 +166,12 @@ Returns the graffiti that will be used for the next block proposal of each valid
 | Required Headers  | [`Authorization`](./api-vc-auth-header.md) |
 | Typical Responses | 200                                        |
 
-### Example Response Body
+Command:
+```bash
+curl -X GET "http://localhost:5062/lighthouse/ui/graffiti" -H "Authorization: Bearer api-token-0x0359d0fa3a24b7f23d4aec5b957d8f4a0c7b0f2b7c78924148dfa0945769fcd520" |
+ jq
+ ```
+Example Response Body
 
 ```json
 {
@@ -155,71 +196,114 @@ Returns the Ethereum proof-of-stake consensus specification loaded for this vali
 | Required Headers  | [`Authorization`](./api-vc-auth-header.md) |
 | Typical Responses | 200                                        |
 
-### Example Response Body
+Command:
+
+```bash
+curl -X GET "http://localhost:5062/lighthouse/spec" -H "Authorization: Bearer api-token-0x0359d0fa3a24b7f23d4aec5b957d8f4a0c7b0f2b7c78924148dfa0945769fcd520" | jq
+```
+
+Example Response Body
 
 ```json
 {
-    "data": {
-        "CONFIG_NAME": "mainnet",
-        "MAX_COMMITTEES_PER_SLOT": "64",
-        "TARGET_COMMITTEE_SIZE": "128",
-        "MIN_PER_EPOCH_CHURN_LIMIT": "4",
-        "CHURN_LIMIT_QUOTIENT": "65536",
-        "SHUFFLE_ROUND_COUNT": "90",
-        "MIN_GENESIS_ACTIVE_VALIDATOR_COUNT": "1024",
-        "MIN_GENESIS_TIME": "1601380800",
-        "GENESIS_DELAY": "172800",
-        "MIN_DEPOSIT_AMOUNT": "1000000000",
-        "MAX_EFFECTIVE_BALANCE": "32000000000",
-        "EJECTION_BALANCE": "16000000000",
-        "EFFECTIVE_BALANCE_INCREMENT": "1000000000",
-        "HYSTERESIS_QUOTIENT": "4",
-        "HYSTERESIS_DOWNWARD_MULTIPLIER": "1",
-        "HYSTERESIS_UPWARD_MULTIPLIER": "5",
-        "PROPORTIONAL_SLASHING_MULTIPLIER": "3",
-        "GENESIS_FORK_VERSION": "0x00000002",
-        "BLS_WITHDRAWAL_PREFIX": "0x00",
-        "SECONDS_PER_SLOT": "12",
-        "MIN_ATTESTATION_INCLUSION_DELAY": "1",
-        "MIN_SEED_LOOKAHEAD": "1",
-        "MAX_SEED_LOOKAHEAD": "4",
-        "MIN_EPOCHS_TO_INACTIVITY_PENALTY": "4",
-        "MIN_VALIDATOR_WITHDRAWABILITY_DELAY": "256",
-        "SHARD_COMMITTEE_PERIOD": "256",
-        "BASE_REWARD_FACTOR": "64",
-        "WHISTLEBLOWER_REWARD_QUOTIENT": "512",
-        "PROPOSER_REWARD_QUOTIENT": "8",
-        "INACTIVITY_PENALTY_QUOTIENT": "16777216",
-        "MIN_SLASHING_PENALTY_QUOTIENT": "32",
-        "SAFE_SLOTS_TO_UPDATE_JUSTIFIED": "8",
-        "DOMAIN_BEACON_PROPOSER": "0x00000000",
-        "DOMAIN_BEACON_ATTESTER": "0x01000000",
-        "DOMAIN_RANDAO": "0x02000000",
-        "DOMAIN_DEPOSIT": "0x03000000",
-        "DOMAIN_VOLUNTARY_EXIT": "0x04000000",
-        "DOMAIN_SELECTION_PROOF": "0x05000000",
-        "DOMAIN_AGGREGATE_AND_PROOF": "0x06000000",
-        "DOMAIN_APPLICATION_MASK": "0x00000001",
-        "MAX_VALIDATORS_PER_COMMITTEE": "2048",
-        "SLOTS_PER_EPOCH": "32",
-        "EPOCHS_PER_ETH1_VOTING_PERIOD": "32",
-        "SLOTS_PER_HISTORICAL_ROOT": "8192",
-        "EPOCHS_PER_HISTORICAL_VECTOR": "65536",
-        "EPOCHS_PER_SLASHINGS_VECTOR": "8192",
-        "HISTORICAL_ROOTS_LIMIT": "16777216",
-        "VALIDATOR_REGISTRY_LIMIT": "1099511627776",
-        "MAX_PROPOSER_SLASHINGS": "16",
-        "MAX_ATTESTER_SLASHINGS": "2",
-        "MAX_ATTESTATIONS": "128",
-        "MAX_DEPOSITS": "16",
-        "MAX_VOLUNTARY_EXITS": "16",
-        "ETH1_FOLLOW_DISTANCE": "1024",
-        "TARGET_AGGREGATORS_PER_COMMITTEE": "16",
-        "RANDOM_SUBNETS_PER_VALIDATOR": "1",
-        "EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION": "256",
-        "SECONDS_PER_ETH1_BLOCK": "14",
-        "DEPOSIT_CONTRACT_ADDRESS": "0x48b597f4b53c21b48ad95c7256b49d1779bd5890"
-    }
+  "data": {
+    "CONFIG_NAME": "prater",
+    "PRESET_BASE": "mainnet",
+    "TERMINAL_TOTAL_DIFFICULTY": "10790000",
+    "TERMINAL_BLOCK_HASH": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "TERMINAL_BLOCK_HASH_ACTIVATION_EPOCH": "18446744073709551615",
+    "SAFE_SLOTS_TO_IMPORT_OPTIMISTICALLY": "128",
+    "MIN_GENESIS_ACTIVE_VALIDATOR_COUNT": "16384",
+    "MIN_GENESIS_TIME": "1614588812",
+    "GENESIS_FORK_VERSION": "0x00001020",
+    "GENESIS_DELAY": "1919188",
+    "ALTAIR_FORK_VERSION": "0x01001020",
+    "ALTAIR_FORK_EPOCH": "36660",
+    "BELLATRIX_FORK_VERSION": "0x02001020",
+    "BELLATRIX_FORK_EPOCH": "112260",
+    "CAPELLA_FORK_VERSION": "0x03001020",
+    "CAPELLA_FORK_EPOCH": "162304",
+    "SECONDS_PER_SLOT": "12",
+    "SECONDS_PER_ETH1_BLOCK": "14",
+    "MIN_VALIDATOR_WITHDRAWABILITY_DELAY": "256",
+    "SHARD_COMMITTEE_PERIOD": "256",
+    "ETH1_FOLLOW_DISTANCE": "2048",
+    "INACTIVITY_SCORE_BIAS": "4",
+    "INACTIVITY_SCORE_RECOVERY_RATE": "16",
+    "EJECTION_BALANCE": "16000000000",
+    "MIN_PER_EPOCH_CHURN_LIMIT": "4",
+    "CHURN_LIMIT_QUOTIENT": "65536",
+    "PROPOSER_SCORE_BOOST": "40",
+    "DEPOSIT_CHAIN_ID": "5",
+    "DEPOSIT_NETWORK_ID": "5",
+    "DEPOSIT_CONTRACT_ADDRESS": "0xff50ed3d0ec03ac01d4c79aad74928bff48a7b2b",
+    "MAX_COMMITTEES_PER_SLOT": "64",
+    "TARGET_COMMITTEE_SIZE": "128",
+    "MAX_VALIDATORS_PER_COMMITTEE": "2048",
+    "SHUFFLE_ROUND_COUNT": "90",
+    "HYSTERESIS_QUOTIENT": "4",
+    "HYSTERESIS_DOWNWARD_MULTIPLIER": "1",
+    "HYSTERESIS_UPWARD_MULTIPLIER": "5",
+    "SAFE_SLOTS_TO_UPDATE_JUSTIFIED": "8",
+    "MIN_DEPOSIT_AMOUNT": "1000000000",
+    "MAX_EFFECTIVE_BALANCE": "32000000000",
+    "EFFECTIVE_BALANCE_INCREMENT": "1000000000",
+    "MIN_ATTESTATION_INCLUSION_DELAY": "1",
+    "SLOTS_PER_EPOCH": "32",
+    "MIN_SEED_LOOKAHEAD": "1",
+    "MAX_SEED_LOOKAHEAD": "4",
+    "EPOCHS_PER_ETH1_VOTING_PERIOD": "64",
+    "SLOTS_PER_HISTORICAL_ROOT": "8192",
+    "MIN_EPOCHS_TO_INACTIVITY_PENALTY": "4",
+    "EPOCHS_PER_HISTORICAL_VECTOR": "65536",
+    "EPOCHS_PER_SLASHINGS_VECTOR": "8192",
+    "HISTORICAL_ROOTS_LIMIT": "16777216",
+    "VALIDATOR_REGISTRY_LIMIT": "1099511627776",
+    "BASE_REWARD_FACTOR": "64",
+    "WHISTLEBLOWER_REWARD_QUOTIENT": "512",
+    "PROPOSER_REWARD_QUOTIENT": "8",
+    "INACTIVITY_PENALTY_QUOTIENT": "67108864",
+    "MIN_SLASHING_PENALTY_QUOTIENT": "128",
+    "PROPORTIONAL_SLASHING_MULTIPLIER": "1",
+    "MAX_PROPOSER_SLASHINGS": "16",
+    "MAX_ATTESTER_SLASHINGS": "2",
+    "MAX_ATTESTATIONS": "128",
+    "MAX_DEPOSITS": "16",
+    "MAX_VOLUNTARY_EXITS": "16",
+    "INACTIVITY_PENALTY_QUOTIENT_ALTAIR": "50331648",
+    "MIN_SLASHING_PENALTY_QUOTIENT_ALTAIR": "64",
+    "PROPORTIONAL_SLASHING_MULTIPLIER_ALTAIR": "2",
+    "SYNC_COMMITTEE_SIZE": "512",
+    "EPOCHS_PER_SYNC_COMMITTEE_PERIOD": "256",
+    "MIN_SYNC_COMMITTEE_PARTICIPANTS": "1",
+    "INACTIVITY_PENALTY_QUOTIENT_BELLATRIX": "16777216",
+    "MIN_SLASHING_PENALTY_QUOTIENT_BELLATRIX": "32",
+    "PROPORTIONAL_SLASHING_MULTIPLIER_BELLATRIX": "3",
+    "MAX_BYTES_PER_TRANSACTION": "1073741824",
+    "MAX_TRANSACTIONS_PER_PAYLOAD": "1048576",
+    "BYTES_PER_LOGS_BLOOM": "256",
+    "MAX_EXTRA_DATA_BYTES": "32",
+    "MAX_BLS_TO_EXECUTION_CHANGES": "16",
+    "MAX_WITHDRAWALS_PER_PAYLOAD": "16",
+    "MAX_VALIDATORS_PER_WITHDRAWALS_SWEEP": "16384",
+    "DOMAIN_DEPOSIT": "0x03000000",
+    "BLS_WITHDRAWAL_PREFIX": "0x00",
+    "RANDOM_SUBNETS_PER_VALIDATOR": "1",
+    "DOMAIN_SYNC_COMMITTEE": "0x07000000",
+    "TARGET_AGGREGATORS_PER_SYNC_SUBCOMMITTEE": "16",
+    "DOMAIN_BEACON_ATTESTER": "0x01000000",
+    "DOMAIN_VOLUNTARY_EXIT": "0x04000000",
+    "DOMAIN_SYNC_COMMITTEE_SELECTION_PROOF": "0x08000000",
+    "DOMAIN_CONTRIBUTION_AND_PROOF": "0x09000000",
+    "EPOCHS_PER_RANDOM_SUBNET_SUBSCRIPTION": "256",
+    "TARGET_AGGREGATORS_PER_COMMITTEE": "16",
+    "DOMAIN_APPLICATION_MASK": "0x00000001",
+    "DOMAIN_AGGREGATE_AND_PROOF": "0x06000000",
+    "DOMAIN_RANDAO": "0x02000000",
+    "DOMAIN_SELECTION_PROOF": "0x05000000",
+    "DOMAIN_BEACON_PROPOSER": "0x00000000",
+    "SYNC_COMMITTEE_SUBNET_COUNT": "4"
+  }
 }
 ```
 
@@ -240,13 +324,13 @@ file may be read by a local user with access rights.
 | Required Headers  | -                  |
 | Typical Responses | 200                |
 
-### Example Path
+Command:
 
-```
-localhost:5062/lighthouse/auth
+```bash
+curl http://localhost:5062/lighthouse/auth | jq
 ```
 
-### Example Response Body
+Example Response Body
 
 ```json
 {
@@ -267,7 +351,13 @@ Lists all validators managed by this validator client.
 | Required Headers  | [`Authorization`](./api-vc-auth-header.md) |
 | Typical Responses | 200                                        |
 
-### Example Response Body
+Command:
+
+```bash
+curl -X GET "http://localhost:5062/lighthouse/validators" -H "Authorization: Bearer api-token-0x0359d0fa3a24b7f23d4aec5b957d8f4a0c7b0f2b7c78924148dfa0945769fcd520" | jq
+```
+
+Example Response Body
 
 ```json
 {
@@ -304,13 +394,13 @@ Get a validator by their `voting_pubkey`.
 | Required Headers  | [`Authorization`](./api-vc-auth-header.md) |
 | Typical Responses | 200, 400                                   |
 
-### Example Path
+Command:
 
-```
-localhost:5062/lighthouse/validators/0xb0148e6348264131bf47bcd1829590e870c836dc893050fd0dadc7a28949f9d0a72f2805d027521b45441101f0cc1cde
+```bash
+curl -X GET "http://localhost:5062/lighthouse/validators/0xb0148e6348264131bf47bcd1829590e870c836dc893050fd0dadc7a28949f9d0a72f2805d027521b45441101f0cc1cde -H "Authorization: Bearer api-token-0x0359d0fa3a24b7f23d4aec5b957d8f4a0c7b0f2b7c78924148dfa0945769fcd520" | jq
 ```
 
-### Example Response Body
+Example Response Body
 
 ```json
 {
@@ -334,13 +424,13 @@ Update some values for the validator with `voting_pubkey`.
 | Required Headers  | [`Authorization`](./api-vc-auth-header.md) |
 | Typical Responses | 200, 400                                   |
 
-### Example Path
+Command:
+
+```bash
 
 ```
-localhost:5062/lighthouse/validators/0xb0148e6348264131bf47bcd1829590e870c836dc893050fd0dadc7a28949f9d0a72f2805d027521b45441101f0cc1cde
-```
 
-### Example Request Body
+Example Request Body
 
 ```json
 {
@@ -351,7 +441,13 @@ localhost:5062/lighthouse/validators/0xb0148e6348264131bf47bcd1829590e870c836dc8
 ### Example Response Body
 
 ```json
-null
+{
+  "data": {
+    "enabled": true,
+    "description": "",
+    "voting_pubkey": "0xb0148e6348264131bf47bcd1829590e870c836dc893050fd0dadc7a28949f9d0a72f2805d027521b45441101f0cc1cde"
+  }
+}
 ```
 
 ## `POST /lighthouse/validators/`
