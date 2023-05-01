@@ -592,7 +592,7 @@ curl -X GET "http://localhost:5052/lighthouse/merge_readiness" | jq
  }
 ```
 
-Given that all testnets and Mainnet have been merged, both values will be the same after the merge. An example of the Goerli testnet response:
+Given that all testnets and Mainnet have been merged, both values will be the same after The Merge. An example of response on the Goerli testnet:
 
 ```json
 {

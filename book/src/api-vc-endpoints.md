@@ -36,7 +36,7 @@ Returns the software version and `git` commit hash for the Lighthouse binary.
 
 Command:
 ```bash
-curl -X GET "http://localhost:5062/lighthouse/version" -H "Authorization: Bearer api-token-0x0359d0fa3a24b7f23d4aec5b957d8f4a0c7b0f2b7c78924148dfa0945769fcd520" | jq
+curl -X GET "http://localhost:5062/lighthouse/version" -H "Authorization: Bearer api-token-0x02dc2a13115cc8c83baf170f597f22b1eb2930542941ab902df3daadebcb8f8176" | jq
 ```
 
 Example Response Body:
@@ -45,7 +45,7 @@ Example Response Body:
 ```json
 {
     "data": {
-        "version": "Lighthouse/v0.2.11-fc0654fbe+/x86_64-linux"
+        "version": "Lighthouse/v4.1.0-693886b/x86_64-linux"
     }
 }
 ```
@@ -67,7 +67,7 @@ Returns information regarding the health of the host machine.
 
 Command:
 ```bash
-url -X GET "http://localhost:5062/lighthouse/health" -H "Authorization: Bearer api-token-0x0359d0fa3a24b7f23d4aec5b957d8f4a0c7b0f2b7c78924148dfa0945769fcd520"
+curl -X GET "http://localhost:5062/lighthouse/health" -H "Authorization: Bearer api-token-0x02dc2a13115cc8c83baf170f597f22b1eb2930542941ab902df3daadebcb8f8176" | jq
 ```
 
 Example Response Body:
@@ -124,7 +124,7 @@ Returns information regarding the health of the host machine.
 
 Command:
 ```bash
- curl -X GET "http://localhost:5062/lighthouse/ui/health" -H "Authorization: Bearer api-token-0x0359d0fa3a24b7f23d4aec5b957d8f4a0c7b0f2b7c78924148dfa0945769fcd520" | jq
+ curl -X GET "http://localhost:5062/lighthouse/ui/health" -H "Authorization: Bearer api-token-0x02dc2a13115cc8c83baf170f597f22b1eb2930542941ab902df3daadebcb8f8176" | jq
  ```
 
 Example Response Body
@@ -168,8 +168,7 @@ Returns the graffiti that will be used for the next block proposal of each valid
 
 Command:
 ```bash
-curl -X GET "http://localhost:5062/lighthouse/ui/graffiti" -H "Authorization: Bearer api-token-0x0359d0fa3a24b7f23d4aec5b957d8f4a0c7b0f2b7c78924148dfa0945769fcd520" |
- jq
+curl -X GET "http://localhost:5062/lighthouse/ui/graffiti" -H "Authorization: Bearer api-token-0x02dc2a13115cc8c83baf170f597f22b1eb2930542941ab902df3daadebcb8f8176" | jq
  ```
 Example Response Body
 
@@ -199,7 +198,7 @@ Returns the Ethereum proof-of-stake consensus specification loaded for this vali
 Command:
 
 ```bash
-curl -X GET "http://localhost:5062/lighthouse/spec" -H "Authorization: Bearer api-token-0x0359d0fa3a24b7f23d4aec5b957d8f4a0c7b0f2b7c78924148dfa0945769fcd520" | jq
+curl -X GET "http://localhost:5062/lighthouse/spec" -H "Authorization: Bearer api-token-0x02dc2a13115cc8c83baf170f597f22b1eb2930542941ab902df3daadebcb8f8176" | jq
 ```
 
 Example Response Body
@@ -354,7 +353,7 @@ Lists all validators managed by this validator client.
 Command:
 
 ```bash
-curl -X GET "http://localhost:5062/lighthouse/validators" -H "Authorization: Bearer api-token-0x0359d0fa3a24b7f23d4aec5b957d8f4a0c7b0f2b7c78924148dfa0945769fcd520" | jq
+curl -X GET "http://localhost:5062/lighthouse/validators/" -H "Authorization: Bearer api-token-0x02dc2a13115cc8c83baf170f597f22b1eb2930542941ab902df3daadebcb8f8176" | jq
 ```
 
 Example Response Body
@@ -397,7 +396,7 @@ Get a validator by their `voting_pubkey`.
 Command:
 
 ```bash
-curl -X GET "http://localhost:5062/lighthouse/validators/0xb0148e6348264131bf47bcd1829590e870c836dc893050fd0dadc7a28949f9d0a72f2805d027521b45441101f0cc1cde -H "Authorization: Bearer api-token-0x0359d0fa3a24b7f23d4aec5b957d8f4a0c7b0f2b7c78924148dfa0945769fcd520" | jq
+curl -X GET "http://localhost:5062/lighthouse/validators/0xb0148e6348264131bf47bcd1829590e870c836dc893050fd0dadc7a28949f9d0a72f2805d027521b45441101f0cc1cde" -H "Authorization: Bearer api-token-0x02dc2a13115cc8c83baf170f597f22b1eb2930542941ab902df3daadebcb8f8176" | jq
 ```
 
 Example Response Body
@@ -413,7 +412,7 @@ Example Response Body
 
 ## `PATCH /lighthouse/validators/:voting_pubkey`
 
-Update some values for the validator with `voting_pubkey`.
+Update some values for the validator with `voting_pubkey`. The following example updates a validator from `enabled: true` to `enabled: false`
 
 ### HTTP Specification
 
@@ -424,11 +423,6 @@ Update some values for the validator with `voting_pubkey`.
 | Required Headers  | [`Authorization`](./api-vc-auth-header.md) |
 | Typical Responses | 200, 400                                   |
 
-Command:
-
-```bash
-
-```
 
 Example Request Body
 
@@ -438,17 +432,26 @@ Example Request Body
 }
 ```
 
+Command:
+
+```bash
+curl -X PATCH "http://localhost:5062/lighthouse/validators/0xb0148e6348264131bf47bcd1829590e870c836dc893050fd0dadc7a28949f9d0a72f2805d027521b45441101f0cc1cde" \
+-H "Authorization: Bearer api-token-0x02dc2a13115cc8c83baf170f597f22b1eb2930542941ab902df3daadebcb8f8176" \
+-H "Content-Type: application/json" \
+-d "{\"enabled\":false}" | jq
+```
 ### Example Response Body
 
 ```json
-{
-  "data": {
-    "enabled": true,
-    "description": "",
-    "voting_pubkey": "0xb0148e6348264131bf47bcd1829590e870c836dc893050fd0dadc7a28949f9d0a72f2805d027521b45441101f0cc1cde"
-  }
-}
+null
 ```
+
+A `null` response indicates that the request is successful. At the same time, `lighthouse vc` will show the log:
+
+```
+INFO Disabled validator                      voting_pubkey: 0xb0148e6348264131bf47bcd1829590e870c836dc893050fd0dadc7a28949f9d0a72f2805d027521b45441101f0cc1cde
+```
+
 
 ## `POST /lighthouse/validators/`
 
