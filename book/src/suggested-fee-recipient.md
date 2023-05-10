@@ -1,7 +1,11 @@
 # Suggested Fee Recipient
 
 The _fee recipient_ is an Ethereum address nominated by a beacon chain validator to receive
+<<<<<<< HEAD
 tips from user transactions. Given that all mainnet and testnets have gone through [The Merge](https://ethereum.org/en/roadmap/merge/), if you run validators on a network, you are strongly recommended to nominate a fee recipient for your validators. Failing to nominate a fee recipient will result in losing the tips from transactions.
+=======
+tips from user transactions. Given that all mainnet and testnets have gone through [The Merge](https://ethereum.org/en/roadmap/merge/), if you run validators on a network, you are highly recommended nominating a fee recipient for your validators. Failing to nominate a fee recipient will result in losing the tips from transactions.
+>>>>>>> bookV3
 
 ## Background
 

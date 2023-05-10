@@ -3,7 +3,11 @@
 [launchpad]: https://launchpad.ethereum.org/
 
 >
+<<<<<<< HEAD
 > **Note: While Lighthouse is able to generate the validator keys and the deposit data file to submit to the deposit contract, we strongly recommend using the [staking-deposit-cli](https://github.com/ethereum/staking-deposit-cli) to create validators keys and the deposit data file. This is because the [staking-deposit-cli](https://github.com/ethereum/staking-deposit-cli) which has the option to assign a withdrawal address during the key generation process, while Lighthouse wallet will always generate keys with withdrawal credentials of type 0x00. This means that users who created keys using Lighthouse will have to update their withdrawal credentials in the future to enable withdrawals. In addition, Lighthouse generates the deposit data file in the form of `*.rlp`, which cannot be uploaded to the [Staking launchpad][launchpad] that accepts only `*.json` file. This means that users have to directly interact with the deposit contract to be able to submit the deposit if they were to generate the files using Lighthouse.**
+=======
+> **Note: While Lighthouse is able to generate the validator keys and the deposit data file to submit to the deposit contract, we recommend using the [Staking launchpad][launchpad] to create validators keys and the deposit data file. This is because Lighthouse generates the deposit data file in the form of `*.rlp`, which cannot be uploaded to the [Staking launchpad][launchpad] that accepts only `*.json` file. This means that the user has to directly interact with the deposit contract to be able to submit the deposit if the user were to generate the files using Lighthouse.**
+>>>>>>> bookV3
 
 Lighthouse uses a _hierarchical_ key management system for producing validator
 keys. It is hierarchical because each validator key can be _derived_ from a
@@ -34,7 +38,11 @@ We defined some terms in the context of validator key management:
 - **Withdrawal Keypair**: a BLS public and private keypair which will be
 	required _after_ Phase 0 to manage ETH once a validator has exited.
 
+<<<<<<< HEAD
 ## Create a validator
+=======
+## Crate a validator
+>>>>>>> bookV3
 There are 2 steps involved to create a validator key using Lighthouse:
  1. [Create a wallet](#step-1-create-a-wallet-and-record-the-mnemonic)
  1. [Create a validator](#step-2-create-a-validator)
@@ -58,7 +66,11 @@ to `./wallet.pass`:
 lighthouse --network goerli account wallet create --name wally --password-file wally.pass
 ```
 Using the above command, a wallet will be created in `~/.lighthouse/goerli/wallets` with the name
+<<<<<<< HEAD
 `wally`. It is encrypted using the password defined in the
+=======
+`wally`. It is encrypted using with password defined in the
+>>>>>>> bookV3
 `wally.pass` file. 
 
 During the wallet creation process, a 24-word mnemonic will be displayed. Record the mnemonic because it allows you to recreate the files in the case of data loss.
