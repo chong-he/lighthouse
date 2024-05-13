@@ -2,7 +2,6 @@ use super::*;
 use beacon_chain::{
     builder::{BeaconChainBuilder, Witness},
     eth1_chain::CachingEth1Backend,
-    validator_monitor::DEFAULT_INDIVIDUAL_TRACKING_THRESHOLD,
     BeaconChain,
 };
 use futures::prelude::*;
@@ -76,7 +75,6 @@ impl TestBeaconChain {
                     Duration::from_millis(SLOT_DURATION_MILLIS),
                 ))
                 .shutdown_sender(shutdown_tx)
-                .monitor_validators(true, vec![], DEFAULT_INDIVIDUAL_TRACKING_THRESHOLD, log)
                 .build()
                 .expect("should build"),
         );
@@ -255,7 +253,7 @@ mod attestation_service {
             &attestation_service.beacon_chain.spec,
         )
         .unwrap();
-        let expected = vec![
+        let expected = [
             SubnetServiceMessage::Subscribe(Subnet::Attestation(subnet_id)),
             SubnetServiceMessage::Unsubscribe(Subnet::Attestation(subnet_id)),
         ];

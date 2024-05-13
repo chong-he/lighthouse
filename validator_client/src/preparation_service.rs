@@ -1,5 +1,5 @@
-use crate::beacon_node_fallback::{BeaconNodeFallback, RequireSynced};
-use crate::validator_store::{DoppelgangerStatus, ValidatorStore};
+use crate::beacon_node_fallback::{ApiTopic, BeaconNodeFallback, RequireSynced};
+use crate::validator_store::{DoppelgangerStatus, Error as ValidatorStoreError, ValidatorStore};
 use crate::OfflineOnFailure;
 use bls::PublicKeyBytes;
 use environment::RuntimeContext;
@@ -342,9 +342,10 @@ impl<T: SlotClock + 'static, E: EthSpec> PreparationService<T, E> {
         let preparation_entries = preparation_data.as_slice();
         match self
             .beacon_nodes
-            .run(
+            .request(
                 RequireSynced::No,
                 OfflineOnFailure::Yes,
+                ApiTopic::Subscriptions,
                 |beacon_node| async move {
                     beacon_node
                         .post_validator_prepare_beacon_proposer(preparation_entries)
@@ -442,8 +443,23 @@ impl<T: SlotClock + 'static, E: EthSpec> PreparationService<T, E> {
                     .await
                 {
                     Ok(data) => data,
+                    Err(ValidatorStoreError::UnknownPubkey(pubkey)) => {
+                        // A pubkey can be missing when a validator was recently
+                        // removed via the API.
+                        debug!(
+                            log,
+                            "Missing pubkey for registration data";
+                            "pubkey" => ?pubkey,
+                        );
+                        continue;
+                    }
                     Err(e) => {
-                        error!(log, "Unable to sign validator registration data"; "error" => ?e, "pubkey" => ?pubkey);
+                        error!(
+                            log,
+                            "Unable to sign validator registration data";
+                            "error" => ?e,
+                            "pubkey" => ?pubkey
+                        );
                         continue;
                     }
                 };

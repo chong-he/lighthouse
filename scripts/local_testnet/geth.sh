@@ -33,7 +33,6 @@ http_port=${@:$OPTIND+2:1}
 auth_port=${@:$OPTIND+3:1}
 genesis_file=${@:$OPTIND+4:1}
 
-
 # Init
 $GETH_BINARY init \
     --datadir $data_dir \
@@ -51,4 +50,5 @@ exec $GETH_BINARY \
     --bootnodes $EL_BOOTNODE_ENODE \
     --port $network_port \
     --http.port $http_port \
-    --authrpc.port $auth_port
+    --authrpc.port $auth_port \
+    2>&1 | tee $data_dir/geth.log

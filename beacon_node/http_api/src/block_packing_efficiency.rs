@@ -19,10 +19,11 @@ use warp_utils::reject::{beacon_chain_error, custom_bad_request, custom_server_e
 const BLOCK_ROOT_CHUNK_SIZE: usize = 100;
 
 #[derive(Debug)]
+// We don't use the inner values directly, but they're used in the Debug impl.
 enum PackingEfficiencyError {
-    BlockReplay(BlockReplayError),
-    BeaconState(BeaconStateError),
-    CommitteeStoreError(Slot),
+    BlockReplay(#[allow(dead_code)] BlockReplayError),
+    BeaconState(#[allow(dead_code)] BeaconStateError),
+    CommitteeStoreError(#[allow(dead_code)] Slot),
     InvalidAttestationError,
 }
 
@@ -75,7 +76,7 @@ impl<T: EthSpec> PackingEfficiencyHandler<T> {
             available_attestations: HashSet::new(),
             included_attestations: HashMap::new(),
             committee_store: CommitteeStore::new(),
-            _phantom: PhantomData::default(),
+            _phantom: PhantomData,
         };
 
         handler.compute_epoch(start_epoch, &starting_state, spec)?;

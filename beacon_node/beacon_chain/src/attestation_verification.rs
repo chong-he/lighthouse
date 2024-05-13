@@ -35,10 +35,8 @@
 mod batch;
 
 use crate::{
-    beacon_chain::{MAXIMUM_GOSSIP_CLOCK_DISPARITY, VALIDATOR_PUBKEY_CACHE_LOCK_TIMEOUT},
-    metrics,
-    observed_aggregates::ObserveOutcome,
-    observed_attesters::Error as ObservedAttestersError,
+    beacon_chain::VALIDATOR_PUBKEY_CACHE_LOCK_TIMEOUT, metrics,
+    observed_aggregates::ObserveOutcome, observed_attesters::Error as ObservedAttestersError,
     BeaconChain, BeaconChainError, BeaconChainTypes,
 };
 use bls::verify_signature_sets;
@@ -57,8 +55,8 @@ use std::borrow::Cow;
 use strum::AsRefStr;
 use tree_hash::TreeHash;
 use types::{
-    Attestation, BeaconCommittee, CommitteeIndex, Epoch, EthSpec, Hash256, IndexedAttestation,
-    SelectionProof, SignedAggregateAndProof, Slot, SubnetId,
+    Attestation, BeaconCommittee, ChainSpec, CommitteeIndex, Epoch, EthSpec, ForkName, Hash256,
+    IndexedAttestation, SelectionProof, SignedAggregateAndProof, Slot, SubnetId,
 };
 
 pub use batch::{batch_verify_aggregated_attestations, batch_verify_unaggregated_attestations};
@@ -454,7 +452,7 @@ impl<'a, T: BeaconChainTypes> IndexedAggregatedAttestation<'a, T> {
         // MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance).
         //
         // We do not queue future attestations for later processing.
-        verify_propagation_slot_range(&chain.slot_clock, attestation)?;
+        verify_propagation_slot_range(&chain.slot_clock, attestation, &chain.spec)?;
 
         // Check the attestation's epoch matches its target.
         if attestation.data.slot.epoch(T::EthSpec::slots_per_epoch())
@@ -541,8 +539,8 @@ impl<'a, T: BeaconChainTypes> IndexedAggregatedAttestation<'a, T> {
             Err(e) => return Err(SignatureNotChecked(&signed_aggregate.message.aggregate, e)),
         };
 
-        let indexed_attestation =
-            match map_attestation_committee(chain, attestation, |(committee, _)| {
+        let get_indexed_attestation_with_committee =
+            |(committee, _): (BeaconCommittee, CommitteesPerSlot)| {
                 // Note: this clones the signature which is known to be a relatively slow operation.
                 //
                 // Future optimizations should remove this clone.
@@ -563,10 +561,16 @@ impl<'a, T: BeaconChainTypes> IndexedAggregatedAttestation<'a, T> {
 
                 get_indexed_attestation(committee.committee, attestation)
                     .map_err(|e| BeaconChainError::from(e).into())
-            }) {
-                Ok(indexed_attestation) => indexed_attestation,
-                Err(e) => return Err(SignatureNotChecked(&signed_aggregate.message.aggregate, e)),
             };
+
+        let indexed_attestation = match map_attestation_committee(
+            chain,
+            attestation,
+            get_indexed_attestation_with_committee,
+        ) {
+            Ok(indexed_attestation) => indexed_attestation,
+            Err(e) => return Err(SignatureNotChecked(&signed_aggregate.message.aggregate, e)),
+        };
 
         Ok(IndexedAggregatedAttestation {
             signed_aggregate,
@@ -722,7 +726,7 @@ impl<'a, T: BeaconChainTypes> IndexedUnaggregatedAttestation<'a, T> {
         // MAXIMUM_GOSSIP_CLOCK_DISPARITY allowance).
         //
         // We do not queue future attestations for later processing.
-        verify_propagation_slot_range(&chain.slot_clock, attestation)?;
+        verify_propagation_slot_range(&chain.slot_clock, attestation, &chain.spec)?;
 
         // Check to ensure that the attestation is "unaggregated". I.e., it has exactly one
         // aggregation bit set.
@@ -1037,11 +1041,11 @@ fn verify_head_block_is_known<T: BeaconChainTypes>(
 pub fn verify_propagation_slot_range<S: SlotClock, E: EthSpec>(
     slot_clock: &S,
     attestation: &Attestation<E>,
+    spec: &ChainSpec,
 ) -> Result<(), Error> {
     let attestation_slot = attestation.data.slot;
-
     let latest_permissible_slot = slot_clock
-        .now_with_future_tolerance(MAXIMUM_GOSSIP_CLOCK_DISPARITY)
+        .now_with_future_tolerance(spec.maximum_gossip_clock_disparity())
         .ok_or(BeaconChainError::UnableToReadSlot)?;
     if attestation_slot > latest_permissible_slot {
         return Err(Error::FutureSlot {
@@ -1051,10 +1055,21 @@ pub fn verify_propagation_slot_range<S: SlotClock, E: EthSpec>(
     }
 
     // Taking advantage of saturating subtraction on `Slot`.
-    let earliest_permissible_slot = slot_clock
-        .now_with_past_tolerance(MAXIMUM_GOSSIP_CLOCK_DISPARITY)
+    let one_epoch_prior = slot_clock
+        .now_with_past_tolerance(spec.maximum_gossip_clock_disparity())
         .ok_or(BeaconChainError::UnableToReadSlot)?
         - E::slots_per_epoch();
+
+    let current_fork =
+        spec.fork_name_at_slot::<E>(slot_clock.now().ok_or(BeaconChainError::UnableToReadSlot)?);
+    let earliest_permissible_slot = match current_fork {
+        ForkName::Base | ForkName::Altair | ForkName::Merge | ForkName::Capella => one_epoch_prior,
+        // EIP-7045
+        ForkName::Deneb => one_epoch_prior
+            .epoch(E::slots_per_epoch())
+            .start_slot(E::slots_per_epoch()),
+    };
+
     if attestation_slot < earliest_permissible_slot {
         return Err(Error::PastSlot {
             attestation_slot,
