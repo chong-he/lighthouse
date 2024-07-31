@@ -89,7 +89,7 @@ pub struct RPCRateLimiter {
     bbroots_rl: Limiter<PeerId>,
     blbrange_rl: Limiter<PeerId>,
     blbroot_rl: Limiter<PeerId>,
-    lcbootstrap_rl: Limiter<PeerId>,
+    lc_bootstrap_rl: Limiter<PeerId>,
     lc_optimistic_update_rl: Limiter<PeerId>,
     lc_finality_update_rl: Limiter<PeerId>,
 }
