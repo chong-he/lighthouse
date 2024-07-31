@@ -556,10 +556,10 @@ impl<E: EthSpec> PeerManager<E> {
                     | Protocol::BlobsByRoot => PeerAction::MidToleranceError,
                     Protocol::LightClientBootstrap
                     | Protocol::LightClientOptimisticUpdate
-                    | Protocol::LightClientFinalityUpdate => return
-                    Protocol::Goodbye
-                    | Protocol::MetaData
-                    | Protocol::Status => PeerAction::LowToleranceError,
+                    | Protocol::LightClientFinalityUpdate => return,
+                    Protocol::Goodbye | Protocol::MetaData | Protocol::Status => {
+                        PeerAction::LowToleranceError
+                    }
                 },
                 RPCResponseErrorCode::BlobsNotFoundForBlock => PeerAction::LowToleranceError,
             },
