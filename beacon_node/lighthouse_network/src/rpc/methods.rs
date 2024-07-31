@@ -380,6 +380,8 @@ pub enum RPCResponse<T: EthSpec> {
     BlocksByRoot(Arc<SignedBeaconBlock<T>>),
     BlobsByRange(Arc<BlobSidecar<T>>),
     LightClientBootstrap(Arc<LightClientBootstrap<T>>),
+    LightClientOptimisticUpdate(Arc<LightClientOptimisticUpdate<T>>),
+    LightClientFinalityUpdate(Arc<LightClientFinalityUpdate<T>>),
     BlobsByRoot(Arc<BlobSidecar<T>>),
     Pong(Ping),
     MetaData(MetaData<T>),

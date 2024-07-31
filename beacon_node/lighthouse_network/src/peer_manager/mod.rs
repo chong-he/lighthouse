@@ -555,7 +555,9 @@ impl<E: EthSpec> PeerManager<E> {
                     | Protocol::BlobsByRange
                     | Protocol::BlobsByRoot => PeerAction::MidToleranceError,
                     Protocol::LightClientBootstrap
-                    | Protocol::Goodbye
+                    | Protocol::LightClientOptimisticUpdate
+                    | Protocol::LightClientFinalityUpdate => return
+                    Protocol::Goodbye
                     | Protocol::MetaData
                     | Protocol::Status => PeerAction::LowToleranceError,
                 },
@@ -574,7 +576,9 @@ impl<E: EthSpec> PeerManager<E> {
                     | Protocol::BlobsByRange
                     | Protocol::BlobsByRoot
                     | Protocol::Goodbye
-                    | Protocol::LightClientBootstrap => return,
+                    | Protocol::LightClientBootstrap
+                    | Protocol::LightClientOptimisticUpdate
+                    | Protocol::LightClientFinalityUpdate => return,
                 }
             }
             RPCError::StreamTimeout => match direction {
@@ -590,6 +594,8 @@ impl<E: EthSpec> PeerManager<E> {
                     | Protocol::BlobsByRange
                     | Protocol::BlobsByRoot => PeerAction::MidToleranceError,
                     Protocol::LightClientBootstrap
+                    | Protocol::LightClientOptimisticUpdate
+                    | Protocol::LightClientFinalityUpdate
                     | Protocol::Goodbye
                     | Protocol::MetaData
                     | Protocol::Status => return,

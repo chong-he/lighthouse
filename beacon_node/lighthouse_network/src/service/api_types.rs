@@ -64,6 +64,8 @@ pub enum Request {
     BlobsByRange(BlobsByRangeRequest),
     BlocksByRoot(BlocksByRootRequest),
     LightClientBootstrap(LightClientBootstrapRequest),
+    LightClientOptimisticUpdate,
+    LightClientFinalityUpdate,
     BlobsByRoot(BlobsByRootRequest),
 }
 
