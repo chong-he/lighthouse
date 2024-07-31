@@ -59,21 +59,11 @@ pub enum RequestId {
 //       leave the Behaviour. For all protocols managed by RPC see `RPCRequest`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Request {
-    /// A Status message.
     Status(StatusMessage),
-    /// A blocks by range request.
     BlocksByRange(BlocksByRangeRequest),
-    /// A blobs by range request.
     BlobsByRange(BlobsByRangeRequest),
-    /// A request blocks root request.
     BlocksByRoot(BlocksByRootRequest),
-    // light client bootstrap request
     LightClientBootstrap(LightClientBootstrapRequest),
-    // light client optimistic update request
-    LightClientOptimisticUpdate,
-    // light client finality update request
-    LightClientFinalityUpdate,
-    /// A request blobs root request.
     BlobsByRoot(BlobsByRootRequest),
 }
 

@@ -374,61 +374,31 @@ impl BlobsByRootRequest {
 // Collection of enums and structs used by the Codecs to encode/decode RPC messages
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum RPCResponse<E: EthSpec> {
-    /// A HELLO message.
+pub enum RPCResponse<T: EthSpec> {
     Status(StatusMessage),
-
-    /// A response to a get BLOCKS_BY_RANGE request. A None response signifies the end of the
-    /// batch.
-    BlocksByRange(Arc<SignedBeaconBlock<E>>),
-
-    /// A response to a get BLOCKS_BY_ROOT request.
-    BlocksByRoot(Arc<SignedBeaconBlock<E>>),
-
-    /// A response to a get BLOBS_BY_RANGE request
-    BlobsByRange(Arc<BlobSidecar<E>>),
-
-    /// A response to a get LIGHT_CLIENT_BOOTSTRAP request.
-    LightClientBootstrap(Arc<LightClientBootstrap<E>>),
-
-    /// A response to a get LIGHT_CLIENT_OPTIMISTIC_UPDATE request.
-    LightClientOptimisticUpdate(Arc<LightClientOptimisticUpdate<E>>),
-
-    /// A response to a get LIGHT_CLIENT_FINALITY_UPDATE request.
-    LightClientFinalityUpdate(Arc<LightClientFinalityUpdate<E>>),
-
-    /// A response to a get BLOBS_BY_ROOT request.
-    BlobsByRoot(Arc<BlobSidecar<E>>),
-
-    /// A PONG response to a PING request.
+    BlocksByRange(Arc<SignedBeaconBlock<T>>),
+    BlocksByRoot(Arc<SignedBeaconBlock<T>>),
+    BlobsByRange(Arc<BlobSidecar<T>>),
+    LightClientBootstrap(Arc<LightClientBootstrap<T>>),
+    BlobsByRoot(Arc<BlobSidecar<T>>),
     Pong(Ping),
-
-    /// A response to a META_DATA request.
-    MetaData(MetaData<E>),
+    MetaData(MetaData<T>),
 }
 
 /// Indicates which response is being terminated by a stream termination response.
 #[derive(Debug, Clone)]
 pub enum ResponseTermination {
-    /// Blocks by range stream termination.
     BlocksByRange,
-
-    /// Blocks by root stream termination.
     BlocksByRoot,
-
-    /// Blobs by range stream termination.
     BlobsByRange,
-
-    /// Blobs by root stream termination.
     BlobsByRoot,
 }
 
 /// The structured response containing a result/code indicating success or failure
 /// and the contents of the response
 #[derive(Debug, Clone)]
-pub enum RPCCodedResponse<E: EthSpec> {
-    /// The response is a successful.
-    Success(RPCResponse<E>),
+pub enum RPCCodedResponse<T: EthSpec> {
+    Success(RPCResponse<T>),
 
     Error(RPCResponseErrorCode, ErrorType),
 
