@@ -14,11 +14,7 @@ pub const VALIDATOR_FLAG: &str = "validators";
 
 pub fn cli_app() -> Command {
     Command::new(CMD)
-        .about(
-            "Uploads validators to a validator client using the HTTP API. The validators \
-                are defined in a JSON file which can be generated using the \"create-validators\" \
-                command.",
-        )
+        .about("Exit validator using the HTTP API for a given validator keystore.")
         .arg(
             Arg::new("help")
                 .long("help")
@@ -27,19 +23,6 @@ pub fn cli_app() -> Command {
                 .action(ArgAction::HelpLong)
                 .display_order(0)
                 .help_heading(FLAG_HEADER),
-        )
-        .arg(
-            Arg::new(VALIDATORS_FILE_FLAG)
-                .long(VALIDATORS_FILE_FLAG)
-                .value_name("PATH_TO_JSON_FILE")
-                .help(
-                    "The path to a JSON file containing a list of validators to be \
-                    imported to the validator client. This file is usually named \
-                    \"validators.json\".",
-                )
-                .required(true)
-                .action(ArgAction::Set)
-                .display_order(0),
         )
         .arg(
             Arg::new(VC_URL_FLAG)
