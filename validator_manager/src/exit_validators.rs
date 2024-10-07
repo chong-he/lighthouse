@@ -76,12 +76,18 @@ async fn run(config: ExitConfig) -> Result<(), String> {
     let ExitConfig {
         vc_url,
         vc_token_path,
-        validators_to_exit: _,
+        validators_to_exit,
     } = config;
 
     let (http_client, validators) = vc_http_client(vc_url.clone(), &vc_token_path).await?;
 
-    // let exit_epoch: Option<Epoch> = 3000;
+    if !validators
+        .iter()
+        .any(|validator| validator.validating_pubkey == validators_to_exit)
+    {
+        return Err(format!("Validator {} doesn't exists", validators_to_exit));
+    }
+
     // let exit_epoch: Option<Epoch>;
 
     for validator in &validators {
