@@ -97,5 +97,6 @@ async fn run(config: ExitConfig) -> Result<(), String> {
             .map_err(|e| format!("Error exiting validators {}", e))?;
     }
 
+    eprintln!("Validator(s) exited");
     Ok(())
 }
