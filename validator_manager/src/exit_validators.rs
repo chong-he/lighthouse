@@ -1,6 +1,5 @@
 use crate::{common::vc_http_client, DumpConfig};
 use clap::{Arg, ArgAction, ArgMatches, Command};
-use clap_utils::FLAG_HEADER;
 use eth2::SensitiveUrl;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -15,15 +14,6 @@ pub const VALIDATOR_FLAG: &str = "validators";
 pub fn cli_app() -> Command {
     Command::new(CMD)
         .about("Exit validator using the HTTP API for a given validator keystore.")
-        .arg(
-            Arg::new("help")
-                .long("help")
-                .short('h')
-                .help("Prints help information")
-                .action(ArgAction::HelpLong)
-                .display_order(0)
-                .help_heading(FLAG_HEADER),
-        )
         .arg(
             Arg::new(VC_URL_FLAG)
                 .long(VC_URL_FLAG)
@@ -95,8 +85,10 @@ async fn run(config: ExitConfig) -> Result<(), String> {
     // let exit_epoch: Option<Epoch>;
 
     for validator in &validators {
-        let _signing_message =
-            http_client.post_validator_voluntary_exit(&validator.validating_pubkey, None);
+        let _signing_message = http_client
+            .post_validator_voluntary_exit(&validator.validating_pubkey, None)
+            .await
+            .map_err(|e| format!("Error exiting validators {}", e))?;
     }
 
     Ok(())
