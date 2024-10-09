@@ -92,23 +92,28 @@ async fn run(config: ExitConfig) -> Result<(), String> {
 
     let (http_client, validators) = vc_http_client(vc_url.clone(), &vc_token_path).await?;
 
-    if !validators
-        .iter()
-        .any(|validator| validator.validating_pubkey == validators_to_exit)
-    {
-        return Err(format!("Validator {} doesn't exists", validators_to_exit));
-    }
+    // if !validators
+    //     .iter()
+    //     .any(|validator| validator.validating_pubkey == validators_to_exit)
+    // {
+    //     return Err(format!("Validator {} doesn't exist", validators_to_exit));
+    // }
 
     // let exit_epoch: Option<Epoch>;
 
-    for validators_to_exit in &validators {
+    if let Some(validator) = validators
+        .iter()
+        .find(|validator| validator.validating_pubkey == validators_to_exit)
+    {
         let exit_message = http_client
-            .post_validator_voluntary_exit(&validators_to_exit.validating_pubkey, None)
+            .post_validator_voluntary_exit(&validator.validating_pubkey, None)
             .await
             .map_err(|e| format!("Failed to generate voluntary exit message: {}", e))?;
 
         println!("Exit message: {:?}", exit_message);
-    }
 
-    Ok(())
+        Ok(())
+    } else {
+        Err(format!("Validator {} doesn't exist", validators_to_exit))
+    }
 }
