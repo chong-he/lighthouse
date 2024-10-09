@@ -76,12 +76,6 @@ impl ExitConfig {
 pub async fn cli_run(matches: &ArgMatches, dump_config: DumpConfig) -> Result<(), String> {
     let config = ExitConfig::from_cli(matches)?;
 
-    // let server_url: String = clap_utils::parse_optional(matches, BEACON_SERVER_FLAG)?;
-    // let client = BeaconNodeHttpClient::new(
-    //     SensitiveUrl::parse(server_url)
-    //         .map_err(|e| format!("Failed to parse beacon http server: {:?}", e)),
-    // )?;
-
     if dump_config.should_exit_early(&config)? {
         Ok(())
     } else {
@@ -107,16 +101,13 @@ async fn run(config: ExitConfig) -> Result<(), String> {
 
     // let exit_epoch: Option<Epoch>;
 
-    for validator in &validators {
-        let signing_message = http_client
-            .post_validator_voluntary_exit(&validator.validating_pubkey, None)
+    for validators_to_exit in &validators {
+        let exit_message = http_client
+            .post_validator_voluntary_exit(&validators_to_exit.validating_pubkey, None)
             .await
             .map_err(|e| format!("Failed to generate voluntary exit message: {}", e))?;
 
-        println!("Voluntary exit message: {:?}", signing_message);
-        // let exit = post_beacon_pool_voluntary_exits(signing_message)
-        //     .await
-        //     .map_err(|e| format!("Failed to publish voluntary exit {}", e));
+        println!("Exit message: {:?}", exit_message);
     }
 
     Ok(())
