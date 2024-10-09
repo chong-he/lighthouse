@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use types::PublicKeyBytes;
 
 pub const CMD: &str = "exit";
+pub const BEACON_SERVER_FLAG: &str = "beacon-node";
 pub const VALIDATORS_FILE_FLAG: &str = "validators-file";
 pub const VC_URL_FLAG: &str = "vc-url";
 pub const VC_TOKEN_FLAG: &str = "vc-token";
@@ -14,6 +15,15 @@ pub const VALIDATOR_FLAG: &str = "validators";
 pub fn cli_app() -> Command {
     Command::new(CMD)
         .about("Exit validator using the HTTP API for a given validator keystore.")
+        .arg(
+            Arg::new(BEACON_SERVER_FLAG)
+                .long(BEACON_SERVER_FLAG)
+                .value_name("NETWORK_ADDRESS")
+                .help("Address to a beacon node HTTP API")
+                .default_value("http://localhost:5052")
+                .action(ArgAction::Set)
+                .display_order(0),
+        )
         .arg(
             Arg::new(VC_URL_FLAG)
                 .long(VC_URL_FLAG)
@@ -65,6 +75,13 @@ impl ExitConfig {
 
 pub async fn cli_run(matches: &ArgMatches, dump_config: DumpConfig) -> Result<(), String> {
     let config = ExitConfig::from_cli(matches)?;
+
+    // let server_url: String = clap_utils::parse_optional(matches, BEACON_SERVER_FLAG)?;
+    // let client = BeaconNodeHttpClient::new(
+    //     SensitiveUrl::parse(server_url)
+    //         .map_err(|e| format!("Failed to parse beacon http server: {:?}", e)),
+    // )?;
+
     if dump_config.should_exit_early(&config)? {
         Ok(())
     } else {
@@ -91,12 +108,16 @@ async fn run(config: ExitConfig) -> Result<(), String> {
     // let exit_epoch: Option<Epoch>;
 
     for validator in &validators {
-        let _signing_message = http_client
+        let signing_message = http_client
             .post_validator_voluntary_exit(&validator.validating_pubkey, None)
             .await
-            .map_err(|e| format!("Error exiting validators {}", e))?;
+            .map_err(|e| format!("Failed to generate voluntary exit message: {}", e))?;
+
+        println!("Voluntary exit message: {:?}", signing_message);
+        // let exit = post_beacon_pool_voluntary_exits(signing_message)
+        //     .await
+        //     .map_err(|e| format!("Failed to publish voluntary exit {}", e));
     }
 
-    eprintln!("Validator(s) exited");
     Ok(())
 }
