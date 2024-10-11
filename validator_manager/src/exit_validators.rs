@@ -1,12 +1,13 @@
 use crate::{common::vc_http_client, DumpConfig};
 use clap::{Arg, ArgAction, ArgMatches, Command};
-use eth2::SensitiveUrl;
+use eth2::{BeaconNodeHttpClient, SensitiveUrl, Timeouts};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::time::Duration;
 use types::PublicKeyBytes;
 
 pub const CMD: &str = "exit";
-pub const BEACON_SERVER_FLAG: &str = "beacon-node";
+pub const BEACON_URL_FLAG: &str = "beacon-node";
 pub const VALIDATORS_FILE_FLAG: &str = "validators-file";
 pub const VC_URL_FLAG: &str = "vc-url";
 pub const VC_TOKEN_FLAG: &str = "vc-token";
@@ -16,8 +17,8 @@ pub fn cli_app() -> Command {
     Command::new(CMD)
         .about("Exit validator using the HTTP API for a given validator keystore.")
         .arg(
-            Arg::new(BEACON_SERVER_FLAG)
-                .long(BEACON_SERVER_FLAG)
+            Arg::new(BEACON_URL_FLAG)
+                .long(BEACON_URL_FLAG)
                 .value_name("NETWORK_ADDRESS")
                 .help("Address to a beacon node HTTP API")
                 .default_value("http://localhost:5052")
@@ -61,6 +62,7 @@ pub struct ExitConfig {
     pub vc_url: SensitiveUrl,
     pub vc_token_path: PathBuf,
     pub validators_to_exit: PublicKeyBytes,
+    pub beacon_url: Option<SensitiveUrl>,
 }
 
 impl ExitConfig {
@@ -69,6 +71,7 @@ impl ExitConfig {
             vc_url: clap_utils::parse_required(matches, VC_URL_FLAG)?,
             vc_token_path: clap_utils::parse_required(matches, VC_TOKEN_FLAG)?,
             validators_to_exit: clap_utils::parse_required(matches, VALIDATOR_FLAG)?,
+            beacon_url: clap_utils::parse_optional(matches, BEACON_URL_FLAG)?,
         })
     }
 }
@@ -88,6 +91,7 @@ async fn run(config: ExitConfig) -> Result<(), String> {
         vc_url,
         vc_token_path,
         validators_to_exit,
+        beacon_url,
     } = config;
 
     let (http_client, validators) = vc_http_client(vc_url.clone(), &vc_token_path).await?;
@@ -107,6 +111,31 @@ async fn run(config: ExitConfig) -> Result<(), String> {
         .await
         .map_err(|e| format!("Failed to generate voluntary exit message: {}", e))?;
 
-    println!("Voluntary_exit message: {:?}", exit_message.data);
+    println!("Voluntary exit message: {:?}", exit_message.data);
+
+    let beacon_node = if let Some(beacon_url) = beacon_url {
+        BeaconNodeHttpClient::new(
+            SensitiveUrl::parse(beacon_url.as_ref())
+                .map_err(|e| format!("Failed to parse beacon http server: {:?}", e))?,
+            Timeouts::set_all(Duration::from_secs(12)),
+        )
+    } else {
+        return Err("Beacon URL is not provided".into());
+    };
+
+    let voluntary_exit = beacon_node
+        .post_beacon_pool_voluntary_exits(&exit_message.data)
+        .await;
+
+    match voluntary_exit {
+        Ok(()) => println!(
+            "Successfully published voluntary exit for validator {}",
+            validators_to_exit
+        ),
+        Err(e) => println!("Failed to publish voluntary exit: {}", e),
+    }
+
+    // println!("{:?}", voluntary_exit);
+
     Ok(())
 }
