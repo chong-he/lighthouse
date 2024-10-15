@@ -123,17 +123,23 @@ async fn run(config: ExitConfig) -> Result<(), String> {
         return Err("Beacon URL is not provided".into());
     };
 
-    let voluntary_exit = beacon_node
+    beacon_node
         .post_beacon_pool_voluntary_exits(&exit_message.data)
-        .await;
+        .await
+        .map_err(|e| format!("Failed to publish voluntary exit: {}", e))?;
+    // tokio::time::sleep(std::time::Duration::from_secs(1)).await; // Provides nicer UX.
+    eprintln!(
+        "Successfully validated and published voluntary exit for validator {}",
+        validators_to_exit
+    );
 
-    match voluntary_exit {
-        Ok(()) => println!(
-            "Successfully published voluntary exit for validator {}",
-            validators_to_exit
-        ),
-        Err(e) => println!("Failed to publish voluntary exit: {}", e),
-    }
+    // match voluntary_exit {
+    //     Ok(()) => println!(
+    //         "Successfully published voluntary exit for validator {}",
+    //         validators_to_exit
+    //     ),
+    //     Err(e) => println!("Failed to publish voluntary exit: {}", e),
+    // }
 
     // println!("{:?}", voluntary_exit);
 
