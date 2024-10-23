@@ -1,5 +1,6 @@
 use crate::{common::vc_http_client, DumpConfig};
 use clap::{Arg, ArgAction, ArgMatches, Command};
+use eth2::types::Epoch;
 use eth2::{BeaconNodeHttpClient, SensitiveUrl, Timeouts};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -12,6 +13,7 @@ pub const VALIDATORS_FILE_FLAG: &str = "validators-file";
 pub const VC_URL_FLAG: &str = "vc-url";
 pub const VC_TOKEN_FLAG: &str = "vc-token";
 pub const VALIDATOR_FLAG: &str = "validators";
+pub const EXIT_EPOCH_FLAG: &str = "exit-epoch";
 
 pub fn cli_app() -> Command {
     Command::new(CMD)
@@ -29,11 +31,7 @@ pub fn cli_app() -> Command {
             Arg::new(VC_URL_FLAG)
                 .long(VC_URL_FLAG)
                 .value_name("HTTP_ADDRESS")
-                .help(
-                    "A HTTP(S) address of a validator client using the keymanager-API. \
-                    If this value is not supplied then a 'dry run' will be conducted where \
-                    no changes are made to the validator client.",
-                )
+                .help("A HTTP(S) address of a validator client using the keymanager-API.")
                 .default_value("http://localhost:5062")
                 .requires(VC_TOKEN_FLAG)
                 .action(ArgAction::Set)
@@ -55,6 +53,14 @@ pub fn cli_app() -> Command {
                 .action(ArgAction::Set)
                 .display_order(0),
         )
+        .arg(
+            Arg::new(EXIT_EPOCH_FLAG)
+                .long(EXIT_EPOCH_FLAG)
+                .value_name("EPOCH")
+                .help("Provide the minimum epoch for processing voluntary exit.")
+                .action(ArgAction::Set)
+                .display_order(0),
+        )
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
@@ -63,6 +69,7 @@ pub struct ExitConfig {
     pub vc_token_path: PathBuf,
     pub validators_to_exit: PublicKeyBytes,
     pub beacon_url: Option<SensitiveUrl>,
+    pub exit_epoch: Option<Epoch>,
 }
 
 impl ExitConfig {
@@ -72,6 +79,7 @@ impl ExitConfig {
             vc_token_path: clap_utils::parse_required(matches, VC_TOKEN_FLAG)?,
             validators_to_exit: clap_utils::parse_required(matches, VALIDATOR_FLAG)?,
             beacon_url: clap_utils::parse_optional(matches, BEACON_URL_FLAG)?,
+            exit_epoch: clap_utils::parse_optional(matches, EXIT_EPOCH_FLAG)?,
         })
     }
 }
@@ -92,6 +100,7 @@ async fn run(config: ExitConfig) -> Result<(), String> {
         vc_token_path,
         validators_to_exit,
         beacon_url,
+        exit_epoch,
     } = config;
 
     let (http_client, validators) = vc_http_client(vc_url.clone(), &vc_token_path).await?;
@@ -107,7 +116,7 @@ async fn run(config: ExitConfig) -> Result<(), String> {
     // let exit_epoch: Option<Epoch>;
 
     let exit_message = http_client
-        .post_validator_voluntary_exit(&validators_to_exit, None)
+        .post_validator_voluntary_exit(&validators_to_exit, exit_epoch)
         .await
         .map_err(|e| format!("Failed to generate voluntary exit message: {}", e))?;
 
@@ -132,16 +141,6 @@ async fn run(config: ExitConfig) -> Result<(), String> {
         "Successfully validated and published voluntary exit for validator {}",
         validators_to_exit
     );
-
-    // match voluntary_exit {
-    //     Ok(()) => println!(
-    //         "Successfully published voluntary exit for validator {}",
-    //         validators_to_exit
-    //     ),
-    //     Err(e) => println!("Failed to publish voluntary exit: {}", e),
-    // }
-
-    // println!("{:?}", voluntary_exit);
 
     Ok(())
 }
