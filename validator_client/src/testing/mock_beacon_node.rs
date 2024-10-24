@@ -102,12 +102,12 @@ impl<E: EthSpec> MockBeaconNode<E> {
     }
 
     pub fn mock_post_beacon_blocks_v1(&mut self, delay: Duration) -> &mut Self {
-        let path_pattern = Regex::new(r"^/eth/v1/beacon/blocks$").unwrap();
+        let path = "/eth/v1/beacon/blinded_blocks";
         let log = self.log.clone();
         let url = self.server.url();
 
         self.server
-            .mock("POST", Matcher::Regex(path_pattern.to_string()))
+            .mock("POST", path)
             .match_header("Eth-Consensus-Version", "Deneb")
             .with_status(200)
             .with_body_from_request(move |_request| {
