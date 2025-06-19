@@ -96,7 +96,7 @@ jobs:
       - name: Install build dependencies and cross-compilation tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y libclang-dev cmake gcc-aarch64-linux-gnu
+          sudo apt-get install -y libclang-dev cmake gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 
       - name: Install cargo-cache
         run: cargo install cargo-cache
@@ -107,6 +107,9 @@ jobs:
           key: reproducible-build-aarch64
 
       - name: Build Lighthouse (first build)
+        env:
+          CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
+          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
         run: |
           make build-reproducible \
             RUST_TARGET=aarch64-unknown-linux-gnu
