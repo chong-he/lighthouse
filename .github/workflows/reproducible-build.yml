@@ -107,10 +107,6 @@ jobs:
           key: reproducible-build-aarch64
 
       - name: Build Lighthouse (first build)
-        env:
-          CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
-          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
         run: |
           make build-reproducible \
             RUST_TARGET=aarch64-unknown-linux-gnu
@@ -126,10 +122,6 @@ jobs:
           rm -rf target/
 
       - name: Build Lighthouse (second build)
-        env:
-          CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
-          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
         run: |
           make build-reproducible \
             RUST_TARGET=aarch64-unknown-linux-gnu
