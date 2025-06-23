@@ -8,7 +8,7 @@ on:
     inputs:
       dry_run:
         description: >-
-          Enable dry run mode (builds images but skips push to registry)
+          Enable dry run mode (builds images but skips push to registry) 
         type: boolean
         default: false
 
