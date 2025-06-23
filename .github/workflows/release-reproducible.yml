@@ -14,7 +14,7 @@ on:
 
 env:
   DOCKER_REPRODUCIBLE_IMAGE_NAME: >-
-    ${{ github.repository_owner }}/lighthouse-reproducible
+    ${{ chonghe }}/lighthouse-reproducible
   DOCKER_PASSWORD: ${{ secrets.DH_KEY }}
   DOCKER_USERNAME: ${{ secrets.DH_ORG }}
 
