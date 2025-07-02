@@ -15,7 +15,7 @@ on:
 
 jobs:
   build-x86_64:
-    name: test reproducible builds (x86_64)
+    name: test reproducible builds (x86_64) testing
     runs-on: ubuntu-latest
     # Run on schedule, workflow_dispatch, or PRs with the 'test-reproducible' label
     if: >
