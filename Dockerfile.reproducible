@@ -12,7 +12,7 @@ COPY ./ /app
 WORKDIR /app
 
 # Build the project with the reproducible settings
-RUN make build-reproducible
+RUN echo "$(date +%s)" > /tmp/build_time && make build-reproducible
 
 # Move the binary to a standard location
 RUN mv /app/target/${RUST_TARGET}/release/lighthouse /lighthouse
