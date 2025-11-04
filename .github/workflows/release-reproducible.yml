@@ -39,14 +39,10 @@ jobs:
         include:
           - arch: amd64
             rust_target: x86_64-unknown-linux-gnu
-            rust_image: >-
-              rust:1.88-bullseye@sha256:8e3c421122bf4cd3b2a866af41a4dd52d87ad9e315fd2cb5100e87a7187a9816
             platform: linux/amd64
             runner: ubuntu-latest
           - arch: arm64
             rust_target: aarch64-unknown-linux-gnu
-            rust_image: >-
-              rust:1.88-bullseye@sha256:8b22455a7ce2adb1355067638284ee99d21cc516fab63a96c4514beaf370aa94
             platform: linux/arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
@@ -67,7 +63,6 @@ jobs:
           docker build -f Dockerfile.reproducible \
             --platform ${{ matrix.platform }} \
             --build-arg RUST_TARGET="${{ matrix.rust_target }}" \
-            --build-arg RUST_IMAGE="${{ matrix.rust_image }}" \
             -t lighthouse-verify-1-${{ matrix.arch }} .
 
           # Extract binary from first build
@@ -84,7 +79,6 @@ jobs:
           docker build -f Dockerfile.reproducible \
             --platform ${{ matrix.platform }} \
             --build-arg RUST_TARGET="${{ matrix.rust_target }}" \
-            --build-arg RUST_IMAGE="${{ matrix.rust_image }}" \
             -t lighthouse-verify-2-${{ matrix.arch }} .
 
           # Extract binary from second build

@@ -1,5 +1,5 @@
-# Define the Rust image as an argument with a default to x86_64 Rust 1.88 image based on Debian Bullseye
-ARG RUST_IMAGE="rust:1.88-bullseye@sha256:8e3c421122bf4cd3b2a866af41a4dd52d87ad9e315fd2cb5100e87a7187a9816"
+# Define the Rust image as an argument with a default (multi-arch tag automatically selects the correct platform)
+ARG RUST_IMAGE="rust:1.88.0-bullseye"
 FROM ${RUST_IMAGE} AS builder
 
 # Install specific version of the build dependencies
