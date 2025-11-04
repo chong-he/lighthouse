@@ -1,4 +1,4 @@
-# Define the Rust image as an argument with a default (multi-arch tag automatically selects the correct platform)
+# Define the Rust image as an argument
 ARG RUST_IMAGE="rust:1.88.0-bullseye"
 FROM ${RUST_IMAGE} AS builder
 
