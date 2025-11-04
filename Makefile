@@ -100,7 +100,7 @@ LOCALE_VAL = C
 TZ_VAL = UTC
 
 # Default features for lighthouse
-FEATURES ?= gnosis,slasher-lmdb,slasher-mdbx,slasher-redb,jemalloc
+FEATURES ?= gnosis,slasher-lmdb,slasher-mdbx,slasher-redb
 
 # Default profile 
 PROFILE ?= release
