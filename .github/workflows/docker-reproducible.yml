@@ -115,6 +115,11 @@ jobs:
           rm -f lighthouse-*-${{ matrix.arch }}
           docker rmi lighthouse-verify-1-${{ matrix.arch }} || true
 
+          # Re-tag the second image for publishing (we verified it's identical to first)
+          VERSION=${{ needs.extract-version.outputs.VERSION }}
+          FINAL_TAG="${{ env.DOCKER_REPRODUCIBLE_IMAGE_NAME }}:${VERSION}-${{ matrix.arch }}"
+          docker tag lighthouse-verify-2-${{ matrix.arch }} "$FINAL_TAG"
+
       - name: Log in to Docker Hub
         if: ${{ github.event_name != 'workflow_dispatch' }}
         uses: docker/login-action@v3
