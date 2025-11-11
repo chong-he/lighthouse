@@ -66,10 +66,7 @@ jobs:
 
       - name: Verify reproducible builds (${{ matrix.arch }})
         run: |
-          echo "Verifying reproducible builds for ${{ matrix.arch }}..."
-
           # Build first image
-          echo "=== Building first verification image ==="
           docker build -f Dockerfile.reproducible \
             --platform ${{ matrix.platform }} \
             --build-arg RUST_TARGET="${{ matrix.rust_target }}" \
@@ -85,7 +82,6 @@ jobs:
           docker system prune -f
 
           # Build second image
-          echo "=== Building second verification image ==="
           docker build -f Dockerfile.reproducible \
             --platform ${{ matrix.platform }} \
             --build-arg RUST_TARGET="${{ matrix.rust_target }}" \
@@ -132,10 +128,7 @@ jobs:
         run: |
           VERSION=${{ needs.extract-version.outputs.VERSION }}
           IMAGE_TAG="${{ env.DOCKER_REPRODUCIBLE_IMAGE_NAME }}:${VERSION}-${{ matrix.arch }}"
-
-          echo "Pushing verified reproducible image: $IMAGE_TAG"
           docker push "$IMAGE_TAG"
-          echo "Successfully pushed $IMAGE_TAG"
 
       - name: Clean up local images
         run: |
@@ -168,8 +161,6 @@ jobs:
           IMAGE_NAME=${{ env.DOCKER_REPRODUCIBLE_IMAGE_NAME }}
           VERSION=${{ needs.extract-version.outputs.VERSION }}
 
-          echo "Creating multi-arch manifest for $IMAGE_NAME:$VERSION"
-
           # Create manifest for the version tag
           docker manifest create \
             ${IMAGE_NAME}:${VERSION} \
@@ -177,5 +168,3 @@ jobs:
             ${IMAGE_NAME}:${VERSION}-arm64
 
           docker manifest push ${IMAGE_NAME}:${VERSION}
-
-          echo "Published: ${IMAGE_NAME}:${VERSION}"
