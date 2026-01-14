@@ -13,13 +13,11 @@ WORKDIR /app
 
 # Build the project with reproducible settings and create Debian package
 RUN make build-reproducible RUST_TARGET=${RUST_TARGET} && \
-    mkdir -p lighthouse/target && \
-    ln -sf ../../target/${RUST_TARGET}/release lighthouse/target/release && \
     make deb-cargo RUST_TARGET=${RUST_TARGET}
 
 # Move artifacts to standard locations for easier extraction
 RUN mv /app/target/${RUST_TARGET}/release/lighthouse /lighthouse && \
-    mv /app/lighthouse/target/${RUST_TARGET}/debian/*.deb /lighthouse.deb
+    mv /app/target/${RUST_TARGET}/debian/*.deb /lighthouse.deb
 
 # Artifacts stage for extracting files in CI/CD workflows
 FROM scratch AS artifacts
