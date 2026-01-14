@@ -13,6 +13,7 @@ WORKDIR /app
 
 # Build the project with reproducible settings and create Debian package
 RUN make build-reproducible RUST_TARGET=${RUST_TARGET} && \
+    ln -sf ${RUST_TARGET}/release target/release && \
     make deb-cargo RUST_TARGET=${RUST_TARGET}
 
 # Move artifacts to standard locations for easier extraction
