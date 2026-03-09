@@ -644,6 +644,7 @@ where
             let exit = runtime_context.executor.exit();
 
             let (listen_addr, server) = http_api::serve(ctx, exit)
+                .await
                 .map_err(|e| format!("Unable to start HTTP API server: {:?}", e))?;
 
             let http_api_task = async move {

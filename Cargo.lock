@@ -4287,6 +4287,7 @@ dependencies = [
 name = "http_api"
 version = "0.1.0"
 dependencies = [
+ "axum 0.8.8",
  "axum_utils",
  "beacon_chain",
  "beacon_processor",
@@ -4327,6 +4328,7 @@ dependencies = [
  "sysinfo",
  "system_health",
  "task_executor",
+ "thiserror 2.0.17",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -4334,6 +4336,7 @@ dependencies = [
  "types",
  "warp",
  "warp_utils",
+ "warpdrive",
 ]
 
 [[package]]
