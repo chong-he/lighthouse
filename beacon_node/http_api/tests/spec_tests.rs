@@ -80,7 +80,7 @@ async fn new() -> (
         listening_socket,
         external_peer_id,
         ..
-    } = create_api_server(harness.chain.clone(), &harness.runtime).await;
+    } = create_api_server(harness.chain.clone(), harness.runtime.task_executor.clone()).await;
 
     harness.runtime.task_executor.spawn(server, "api_server");
 
