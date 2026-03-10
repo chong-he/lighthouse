@@ -12,7 +12,6 @@ mod attester_duties;
 mod beacon;
 mod block_id;
 mod block_packing_efficiency;
-mod block_rewards;
 mod build_block_contents;
 mod builder_states;
 mod custody;
@@ -46,6 +45,9 @@ use crate::utils::{AnyVersionFilter, EthV1Filter};
 use crate::validator::post_validator_liveness_epoch;
 use crate::validator::*;
 use crate::version::beacon_response;
+use axum::Router;
+use axum_utils::server::Server;
+use axum_utils::tls::TlsConfig;
 use beacon::states;
 use beacon_chain::{BeaconChain, BeaconChainError, BeaconChainTypes, WhenSlotSkipped};
 use beacon_processor::BeaconProcessorSend;
@@ -80,7 +82,6 @@ pub use state_id::StateId;
 use std::future::Future;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
-use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::Arc;
 use sysinfo::{System, SystemExt};
@@ -107,21 +108,12 @@ use warp::hyper::Body;
 use warp::sse::Event;
 use warp::{Filter, Rejection, http::Response};
 use warp_utils::{query::multi_key_query, uor::UnifyingOrFilter};
+use warpdrive::WarpService;
 
 const API_PREFIX: &str = "eth";
 
-/// A custom type which allows for both unsecured and TLS-enabled HTTP servers.
-type HttpServer = (SocketAddr, Pin<Box<dyn Future<Output = ()> + Send>>);
-
 /// Alias for readability.
 pub type ExecutionOptimistic = bool;
-
-/// Configuration used when serving the HTTP server over TLS.
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
-pub struct TlsConfig {
-    pub cert: PathBuf,
-    pub key: PathBuf,
-}
 
 /// A wrapper around all the items required to spawn the HTTP server.
 ///
@@ -168,16 +160,16 @@ impl Default for Config {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
-    Warp(warp::Error),
+    #[error("Builder error: {0}")]
+    Builder(#[from] axum_utils::server::BuilderError),
+    #[error("Server error: {0}")]
+    Server(#[from] axum_utils::server::ServerError),
+    #[error("Warp error: {0}")]
+    Warp(#[from] warp::Error),
+    #[error("{0}")]
     Other(String),
-}
-
-impl From<warp::Error> for Error {
-    fn from(e: warp::Error) -> Self {
-        Error::Warp(e)
-    }
 }
 
 impl From<String> for Error {
@@ -330,10 +322,10 @@ pub fn tracing_logging() -> warp::filters::log::Log<impl Fn(warp::filters::log::
 ///
 /// Returns an error if the server is unable to bind or there is another error during
 /// configuration.
-pub fn serve<T: BeaconChainTypes>(
+pub async fn serve<T: BeaconChainTypes>(
     ctx: Arc<Context<T>>,
     shutdown: impl Future<Output = ()> + Send + Sync + 'static,
-) -> Result<HttpServer, Error> {
+) -> Result<(SocketAddr, impl Future<Output = ()>), Error> {
     let config = ctx.config.clone();
 
     // Configure CORS.
@@ -3066,34 +3058,6 @@ pub fn serve<T: BeaconChainTypes>(
             },
         );
 
-    // GET lighthouse/analysis/block_rewards
-    let get_lighthouse_block_rewards = warp::path("lighthouse")
-        .and(warp::path("analysis"))
-        .and(warp::path("block_rewards"))
-        .and(warp::query::<eth2::lighthouse::BlockRewardsQuery>())
-        .and(warp::path::end())
-        .and(task_spawner_filter.clone())
-        .and(chain_filter.clone())
-        .then(|query, task_spawner: TaskSpawner<T::EthSpec>, chain| {
-            task_spawner.blocking_json_task(Priority::P1, move || {
-                block_rewards::get_block_rewards(query, chain)
-            })
-        });
-
-    // POST lighthouse/analysis/block_rewards
-    let post_lighthouse_block_rewards = warp::path("lighthouse")
-        .and(warp::path("analysis"))
-        .and(warp::path("block_rewards"))
-        .and(warp_utils::json::json())
-        .and(warp::path::end())
-        .and(task_spawner_filter.clone())
-        .and(chain_filter.clone())
-        .then(|blocks, task_spawner: TaskSpawner<T::EthSpec>, chain| {
-            task_spawner.blocking_json_task(Priority::P1, move || {
-                block_rewards::compute_block_rewards(blocks, chain)
-            })
-        });
-
     // GET lighthouse/analysis/attestation_performance/{index}
     let get_lighthouse_attestation_performance = warp::path("lighthouse")
         .and(warp::path("analysis"))
@@ -3183,9 +3147,6 @@ pub fn serve<T: BeaconChainTypes>(
                                 }
                                 api_types::EventTopic::LightClientOptimisticUpdate => {
                                     event_handler.subscribe_light_client_optimistic_update()
-                                }
-                                api_types::EventTopic::BlockReward => {
-                                    event_handler.subscribe_block_reward()
                                 }
                                 api_types::EventTopic::AttesterSlashing => {
                                     event_handler.subscribe_attester_slashing()
@@ -3363,7 +3324,6 @@ pub fn serve<T: BeaconChainTypes>(
                 .uor(get_lighthouse_staking)
                 .uor(get_lighthouse_database_info)
                 .uor(get_lighthouse_custody_info)
-                .uor(get_lighthouse_block_rewards)
                 .uor(get_lighthouse_attestation_performance)
                 .uor(get_beacon_light_client_optimistic_update)
                 .uor(get_beacon_light_client_finality_update)
@@ -3414,7 +3374,6 @@ pub fn serve<T: BeaconChainTypes>(
                     .uor(post_validator_liveness_epoch)
                     .uor(post_lighthouse_liveness)
                     .uor(post_lighthouse_database_reconstruct)
-                    .uor(post_lighthouse_block_rewards)
                     .uor(post_lighthouse_ui_validator_metrics)
                     .uor(post_lighthouse_ui_validator_info)
                     .uor(post_lighthouse_finalize)
@@ -3433,34 +3392,36 @@ pub fn serve<T: BeaconChainTypes>(
         .with(cors_builder.build())
         .boxed();
 
-    let http_socket: SocketAddr = SocketAddr::new(config.listen_addr, config.listen_port);
-    let http_server: HttpServer = match config.tls_config {
-        Some(tls_config) => {
-            let (socket, server) = warp::serve(routes)
-                .tls()
-                .cert_path(tls_config.cert)
-                .key_path(tls_config.key)
-                .try_bind_with_graceful_shutdown(http_socket, async {
-                    shutdown.await;
-                })?;
+    let axum_router = Router::new().fallback_service(WarpService::new(routes));
 
-            info!("HTTP API is being served over TLS");
+    let address = SocketAddr::new(config.listen_addr, config.listen_port);
 
-            (socket, Box::pin(server))
-        }
-        None => {
-            let (socket, server) =
-                warp::serve(routes).try_bind_with_graceful_shutdown(http_socket, async {
-                    shutdown.await;
-                })?;
-            (socket, Box::pin(server))
-        }
-    };
+    let mut server_builder = Server::builder().router(axum_router).address(address);
+
+    if let Some(tls_config) = config.tls_config {
+        server_builder = server_builder.with_tls(tls_config);
+        info!("HTTP API is being served over TLS");
+    }
+
+    let server = server_builder.build().await?;
+
+    let (address, server) = server.serve_with_shutdown(shutdown).await?;
 
     info!(
-        listen_address = %http_server.0,
+        listen_address = %address,
         "HTTP API started"
     );
 
-    Ok(http_server)
+    let server_future = async move {
+        match server.await {
+            Ok(()) => {
+                info!("HTTP API server stopped");
+            }
+            Err(e) => {
+                tracing::error!(error = ?e, "HTTP API server error");
+            }
+        }
+    };
+
+    Ok((address, server_future))
 }

@@ -27,7 +27,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use store::MemoryStore;
-use task_executor::test_utils::TestRuntime;
+use task_executor::TaskExecutor;
 use types::{ChainSpec, EthSpec};
 
 pub const TCP_PORT: u16 = 42;
@@ -125,7 +125,12 @@ impl<E: EthSpec> InteractiveTester<E> {
             listening_socket,
             network_rx,
             ..
-        } = create_api_server_with_config(harness.chain.clone(), config, &harness.runtime).await;
+        } = create_api_server_with_config(
+            harness.chain.clone(),
+            config,
+            harness.runtime.task_executor.clone(),
+        )
+        .await;
 
         tokio::spawn(server);
 
@@ -182,15 +187,15 @@ impl<E: EthSpec> InteractiveTester<E> {
 
 pub async fn create_api_server<T: BeaconChainTypes>(
     chain: Arc<BeaconChain<T>>,
-    test_runtime: &TestRuntime,
+    task_executor: TaskExecutor,
 ) -> ApiServer<T, impl Future<Output = ()> + use<T>> {
-    create_api_server_with_config(chain, Config::default(), test_runtime).await
+    create_api_server_with_config(chain, Config::default(), task_executor).await
 }
 
 pub async fn create_api_server_with_config<T: BeaconChainTypes>(
     chain: Arc<BeaconChain<T>>,
     http_config: Config,
-    test_runtime: &TestRuntime,
+    task_executor: TaskExecutor,
 ) -> ApiServer<T, impl Future<Output = ()> + use<T>> {
     // Use port 0 to allocate a new unused port.
     let port = 0;
@@ -262,7 +267,7 @@ pub async fn create_api_server_with_config<T: BeaconChainTypes>(
     let beacon_processor_send = beacon_processor_tx;
     BeaconProcessor {
         network_globals: network_globals.clone(),
-        executor: test_runtime.task_executor.clone(),
+        executor: task_executor.clone(),
         current_workers: 0,
         config: beacon_processor_config,
     }
@@ -295,8 +300,8 @@ pub async fn create_api_server_with_config<T: BeaconChainTypes>(
         sse_logging_components: None,
     });
 
-    let (listening_socket, server) =
-        crate::serve(ctx.clone(), test_runtime.task_executor.exit()).unwrap();
+    let exit = task_executor.exit();
+    let (listening_socket, server) = crate::serve(ctx.clone(), exit).await.unwrap();
 
     ApiServer {
         ctx,

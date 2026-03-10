@@ -1133,14 +1133,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edca88bc138befd0323b20752846e6587272d3b03b0343c8ea28a6f819e6e71f"
 dependencies = [
  "async-trait",
- "axum-core",
+ "axum-core 0.4.5",
  "bytes",
  "futures-util",
  "http 1.4.0",
  "http-body 1.0.1",
  "http-body-util",
  "itoa",
- "matchit",
+ "matchit 0.7.3",
  "memchr",
  "mime",
  "percent-encoding",
@@ -1151,6 +1151,39 @@ dependencies = [
  "tower 0.5.2",
  "tower-layer",
  "tower-service",
+]
+
+[[package]]
+name = "axum"
+version = "0.8.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b52af3cb4058c895d37317bb27508dccc8e5f2d39454016b297bf4a400597b8"
+dependencies = [
+ "axum-core 0.5.6",
+ "bytes",
+ "form_urlencoded",
+ "futures-util",
+ "http 1.4.0",
+ "http-body 1.0.1",
+ "http-body-util",
+ "hyper 1.8.1",
+ "hyper-util",
+ "itoa",
+ "matchit 0.8.4",
+ "memchr",
+ "mime",
+ "percent-encoding",
+ "pin-project-lite",
+ "serde_core",
+ "serde_json",
+ "serde_path_to_error",
+ "serde_urlencoded",
+ "sync_wrapper",
+ "tokio",
+ "tower 0.5.2",
+ "tower-layer",
+ "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -1171,6 +1204,61 @@ dependencies = [
  "sync_wrapper",
  "tower-layer",
  "tower-service",
+]
+
+[[package]]
+name = "axum-core"
+version = "0.5.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08c78f31d7b1291f7ee735c1c6780ccde7785daae9a9206026862dab7d8792d1"
+dependencies = [
+ "bytes",
+ "futures-core",
+ "http 1.4.0",
+ "http-body 1.0.1",
+ "http-body-util",
+ "mime",
+ "pin-project-lite",
+ "sync_wrapper",
+ "tower-layer",
+ "tower-service",
+ "tracing",
+]
+
+[[package]]
+name = "axum-server"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1ab4a3ec9ea8a657c72d99a03a824af695bd0fb5ec639ccbd9cd3543b41a5f9"
+dependencies = [
+ "arc-swap",
+ "bytes",
+ "fs-err",
+ "http 1.4.0",
+ "http-body 1.0.1",
+ "hyper 1.8.1",
+ "hyper-util",
+ "pin-project-lite",
+ "rustls 0.23.35",
+ "rustls-pemfile",
+ "rustls-pki-types",
+ "tokio",
+ "tokio-rustls 0.26.4",
+ "tower-service",
+]
+
+[[package]]
+name = "axum_utils"
+version = "0.1.0"
+dependencies = [
+ "axum 0.8.8",
+ "axum-server",
+ "http 1.4.0",
+ "serde",
+ "thiserror 2.0.17",
+ "tokio",
+ "tower 0.5.2",
+ "tower-http",
 ]
 
 [[package]]
@@ -1288,6 +1376,7 @@ name = "beacon_node"
 version = "8.1.1"
 dependencies = [
  "account_utils",
+ "axum_utils",
  "beacon_chain",
  "bls",
  "clap",
@@ -3613,6 +3702,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28dd6caf6059519a65843af8fe2a3ae298b14b80179855aeb4adc2c1934ee619"
 
 [[package]]
+name = "fs-err"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73fde052dbfc920003cfd2c8e2c6e6d4cc7c1091538c3a24226cec0665ab08c0"
+dependencies = [
+ "autocfg",
+ "tokio",
+]
+
+[[package]]
 name = "fs2"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4188,6 +4287,8 @@ dependencies = [
 name = "http_api"
 version = "0.1.0"
 dependencies = [
+ "axum 0.8.8",
+ "axum_utils",
  "beacon_chain",
  "beacon_processor",
  "bls",
@@ -4228,6 +4329,7 @@ dependencies = [
  "sysinfo",
  "system_health",
  "task_executor",
+ "thiserror 2.0.17",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -4235,12 +4337,15 @@ dependencies = [
  "types",
  "warp",
  "warp_utils",
+ "warpdrive",
 ]
 
 [[package]]
 name = "http_metrics"
 version = "0.1.0"
 dependencies = [
+ "axum 0.8.8",
+ "axum_utils",
  "beacon_chain",
  "health_metrics",
  "lighthouse_network",
@@ -4256,8 +4361,6 @@ dependencies = [
  "tokio",
  "tracing",
  "types",
- "warp",
- "warp_utils",
 ]
 
 [[package]]
@@ -5679,6 +5782,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e7465ac9959cc2b1404e8e2367b43684a6d13790fe23056cc8c6c5a6b7bcb94"
 
 [[package]]
+name = "matchit"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
+
+[[package]]
 name = "mdbx-sys"
 version = "0.11.6-4"
 source = "git+https://github.com/sigp/libmdbx-rs?rev=e6ff4b9377c1619bcf0bfdf52bee5a980a432a1a#e6ff4b9377c1619bcf0bfdf52bee5a980a432a1a"
@@ -5929,6 +6038,24 @@ name = "more-asserts"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fafa6961cabd9c63bcd77a45d7e3b7f3b552b70417831fb0f56db717e72407e"
+
+[[package]]
+name = "multer"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01acbdc23469fd8fe07ab135923371d5f5a422fbf9c522158677c8eb15bc51c2"
+dependencies = [
+ "bytes",
+ "encoding_rs",
+ "futures-util",
+ "http 0.2.12",
+ "httparse",
+ "log",
+ "memchr",
+ "mime",
+ "spin",
+ "version_check",
+]
 
 [[package]]
 name = "multiaddr"
@@ -8031,6 +8158,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_path_to_error"
+version = "0.1.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10a9ff822e371bb5403e391ecd83e182e0e77ba7f6fe0160b795797109d1b457"
+dependencies = [
+ "itoa",
+ "serde",
+ "serde_core",
+]
+
+[[package]]
 name = "serde_repr"
 version = "0.1.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9012,6 +9150,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-tungstenite"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c83b561d025642014097b66e6c1bb422783339e0909e4429cde4749d1990bc38"
+dependencies = [
+ "futures-util",
+ "log",
+ "tokio",
+ "tungstenite",
+]
+
+[[package]]
 name = "tokio-util"
 version = "0.7.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9064,7 +9214,7 @@ checksum = "877c5b330756d856ffcc4553ab34a5684481ade925ecc54bcd1bf02b1d0d4d52"
 dependencies = [
  "async-stream",
  "async-trait",
- "axum",
+ "axum 0.7.9",
  "base64 0.22.1",
  "bytes",
  "h2 0.4.12",
@@ -9348,6 +9498,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
+name = "tungstenite"
+version = "0.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ef1a641ea34f399a848dea702823bbecfb4c486f911735368f1f137cb8257e1"
+dependencies = [
+ "byteorder",
+ "bytes",
+ "data-encoding",
+ "http 1.4.0",
+ "httparse",
+ "log",
+ "rand 0.8.5",
+ "sha1",
+ "thiserror 1.0.69",
+ "url",
+ "utf-8",
+]
+
+[[package]]
 name = "typenum"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9527,6 +9696,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "utf-8"
+version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
+
+[[package]]
 name = "utf8_iter"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9609,6 +9784,8 @@ name = "validator_http_api"
 version = "0.1.0"
 dependencies = [
  "account_utils",
+ "axum 0.8.8",
+ "axum_utils",
  "beacon_node_fallback",
  "bls",
  "deposit_contract",
@@ -9641,6 +9818,7 @@ dependencies = [
  "system_health",
  "task_executor",
  "tempfile",
+ "thiserror 2.0.17",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -9652,6 +9830,7 @@ dependencies = [
  "validator_store",
  "warp",
  "warp_utils",
+ "warpdrive",
  "zeroize",
 ]
 
@@ -9659,6 +9838,8 @@ dependencies = [
 name = "validator_http_metrics"
 version = "0.1.0"
 dependencies = [
+ "axum 0.8.8",
+ "axum_utils",
  "health_metrics",
  "lighthouse_validator_store",
  "lighthouse_version",
@@ -9668,12 +9849,11 @@ dependencies = [
  "parking_lot",
  "serde",
  "slot_clock",
+ "tower 0.5.2",
  "tracing",
  "types",
  "validator_metrics",
  "validator_services",
- "warp",
- "warp_utils",
 ]
 
 [[package]]
@@ -9827,6 +10007,7 @@ dependencies = [
  "log",
  "mime",
  "mime_guess",
+ "multer",
  "percent-encoding",
  "pin-project",
  "rustls-pemfile",
@@ -9836,6 +10017,7 @@ dependencies = [
  "serde_urlencoded",
  "tokio",
  "tokio-rustls 0.25.0",
+ "tokio-tungstenite",
  "tokio-util",
  "tower-service",
  "tracing",
@@ -9855,6 +10037,18 @@ dependencies = [
  "serde_json",
  "tokio",
  "types",
+ "warp",
+]
+
+[[package]]
+name = "warpdrive"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "342119e1ac0e7f3888ca3f9a5602ace6f7b458d63c724ebb660d29240751b322"
+dependencies = [
+ "axum 0.8.8",
+ "futures",
+ "tower 0.5.2",
  "warp",
 ]
 
