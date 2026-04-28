@@ -1,5 +1,4 @@
 #![cfg(not(debug_assertions))]
-#![allow(clippy::result_large_err)]
 
 use beacon_chain::attestation_verification::{
     Error, batch_verify_aggregated_attestations, batch_verify_unaggregated_attestations,
@@ -1371,7 +1370,7 @@ async fn attestation_to_finalized_block() {
 
     let finalized_checkpoint = harness
         .chain
-        .with_head(|head| Ok::<_, BeaconChainError>(head.beacon_state.finalized_checkpoint()))
+        .with_head(|head| Ok::<_, Box<BeaconChainError>>(head.beacon_state.finalized_checkpoint()))
         .unwrap();
     assert!(finalized_checkpoint.epoch > 0);
 

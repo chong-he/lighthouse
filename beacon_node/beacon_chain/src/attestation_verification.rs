@@ -30,7 +30,6 @@
 
 // Ignore this lint for `AttestationSlashInfo` which is of comparable size to the non-error types it
 // is returned alongside.
-#![allow(clippy::result_large_err)]
 
 mod batch;
 
@@ -410,13 +409,13 @@ pub enum AttestationSlashInfo<'a, T: BeaconChainTypes, TErr> {
     /// The attestation is invalid, but its signature wasn't checked.
     SignatureNotChecked(AttestationRef<'a, T::EthSpec>, TErr),
     /// As for `SignatureNotChecked`, but we know the `IndexedAttestation`.
-    SignatureNotCheckedIndexed(IndexedAttestation<T::EthSpec>, TErr),
+    SignatureNotCheckedIndexed(Box<IndexedAttestation<T::EthSpec>>, TErr),
     /// As for `SignatureNotChecked`, but for the `SingleAttestation`.
     SignatureNotCheckedSingle(&'a SingleAttestation, TErr),
     /// The attestation's signature is invalid, so it will never be slashable.
     SignatureInvalid(TErr),
     /// The signature is valid but the attestation is invalid in some other way.
-    SignatureValid(IndexedAttestation<T::EthSpec>, TErr),
+    SignatureValid(Box<IndexedAttestation<T::EthSpec>>, TErr),
 }
 
 /// After processing an attestation normally, optionally process it further for the slasher.
@@ -477,9 +476,9 @@ fn process_slash_info<T: BeaconChainTypes>(
                 };
                 (indexed_attestation, true, err)
             }
-            SignatureNotCheckedIndexed(indexed, err) => (indexed, true, err),
+            SignatureNotCheckedIndexed(indexed, err) => (*indexed, true, err),
             SignatureInvalid(e) => return e,
-            SignatureValid(indexed, err) => (indexed, false, err),
+            SignatureValid(indexed, err) => (*indexed, false, err),
         };
 
         if check_signature && let Err(e) = verify_attestation_signature(chain, &indexed_attestation)
@@ -839,7 +838,7 @@ impl<'a, T: BeaconChainTypes> VerifiedAggregatedAttestation<'a, T> {
         if let Err(e) =
             Self::verify_late_checks(signed_aggregate, observed_attestation_key_root, chain)
         {
-            return Err(SignatureValid(indexed_attestation, e));
+            return Err(SignatureValid(Box::new(indexed_attestation), e));
         }
 
         Ok(VerifiedAggregatedAttestation {
@@ -991,7 +990,7 @@ impl<'a, T: BeaconChainTypes> IndexedUnaggregatedAttestation<'a, T> {
 
         let validator_index = match Self::verify_middle_checks(attestation, chain) {
             Ok(t) => t,
-            Err(e) => return Err(SignatureNotCheckedIndexed(indexed_attestation, e)),
+            Err(e) => return Err(SignatureNotCheckedIndexed(Box::new(indexed_attestation), e)),
         };
 
         Ok(Self {
@@ -1147,7 +1146,7 @@ impl<'a, T: BeaconChainTypes> VerifiedUnaggregatedAttestation<'a, T> {
         let (unaggregated_attestation, subnet_id) =
             match Self::verify_late_checks(attestation, validator_index, subnet_id, chain) {
                 Ok(a) => a,
-                Err(e) => return Err(SignatureValid(indexed_attestation, e)),
+                Err(e) => return Err(SignatureValid(Box::new(indexed_attestation), e)),
             };
 
         Ok(Self {
