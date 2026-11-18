@@ -4,4 +4,7 @@ import OperationPool.ExclusionSet
 import OperationPool.Bridge.Scalars
 import OperationPool.Bridge.QSort
 import OperationPool.Bridge.StateCorr
+import OperationPool.Bridge.Reachable
+import OperationPool.PackedProposerSlashingsValid
 import OperationPool.PackedExitsValid
+import OperationPool.PackedSlashingsAndExitsValid

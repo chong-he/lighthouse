@@ -160,6 +160,31 @@ def types.validator.validator.Validator.is_active_at
       self.exit_epoch
   else ok false
 
+/-- [types::validator::validator::{types::validator::validator::Validator}::is_slashable_at]:
+    Source: 'consensus/types/src/validator/validator.rs', lines 69:4-69:55
+    Name pattern: [types::validator::validator::{types::validator::validator::Validator}::is_slashable_at]
+    Visibility: public -/
+@[rust_fun
+  "types::validator::validator::{types::validator::validator::Validator}::is_slashable_at"]
+def types.validator.validator.Validator.is_slashable_at
+  (self : types.validator.validator.Validator)
+  (epoch : types.core.slot_epoch.Epoch) :
+  Result Bool
+  := do
+  if self.slashed
+  then ok false
+  else
+    let b ←
+      core.cmp.PartialOrd.le.trait_default
+        types.core.slot_epoch.Epoch.Insts.CoreCmpPartialOrdEpoch
+        self.activation_epoch epoch
+    if b
+    then
+      core.cmp.PartialOrd.lt.trait_default
+        types.core.slot_epoch.Epoch.Insts.CoreCmpPartialOrdEpoch epoch
+        self.withdrawable_epoch
+    else ok false
+
 /-- [state_processing::per_block_processing::errors::{state_processing::per_block_processing::errors::BlockOperationError<T>}::invalid]:
     Source: 'consensus/state_processing/src/per_block_processing/errors.rs', lines 264:4-266:5
     Visibility: public -/
@@ -298,6 +323,46 @@ def per_block_processing.verify_exit.verify_exit_pending_balance
         per_block_processing.errors.BlockOperationError.invalid
           (per_block_processing.errors.ExitInvalid.PendingWithdrawalInQueue
           validator_index)
+      ok (core.result.Result.Err boe)
+
+/-- [state_processing::per_block_processing::verify_proposer_slashing::error]:
+    Source: 'consensus/state_processing/src/per_block_processing/verify_proposer_slashing.rs', lines 8:0-10:1 -/
+def per_block_processing.verify_proposer_slashing.error
+  (reason : per_block_processing.errors.ProposerSlashingInvalid) :
+  Result (per_block_processing.errors.BlockOperationError
+    per_block_processing.errors.ProposerSlashingInvalid)
+  := do
+  per_block_processing.errors.BlockOperationError.invalid reason
+
+/-- [state_processing::per_block_processing::verify_proposer_slashing::verify_proposer_slashing_validator_checks]:
+    Source: 'consensus/state_processing/src/per_block_processing/verify_proposer_slashing.rs', lines 67:0-82:1
+    Visibility: public -/
+def
+  per_block_processing.verify_proposer_slashing.verify_proposer_slashing_validator_checks
+  (proposer : Option types.validator.validator.Validator)
+  (proposer_index : Std.U64) (current_epoch : types.core.slot_epoch.Epoch) :
+  Result (core.result.Result Unit
+    (per_block_processing.errors.BlockOperationError
+    per_block_processing.errors.ProposerSlashingInvalid))
+  := do
+  match proposer with
+  | none =>
+    let boe ←
+      per_block_processing.verify_proposer_slashing.error
+        (per_block_processing.errors.ProposerSlashingInvalid.ProposerUnknown
+        proposer_index)
+    ok (core.result.Result.Err boe)
+  | some proposer1 =>
+    let b ←
+      types.validator.validator.Validator.is_slashable_at proposer1
+        current_epoch
+    if b
+    then ok (core.result.Result.Ok ())
+    else
+      let boe ←
+        per_block_processing.errors.BlockOperationError.invalid
+          (per_block_processing.errors.ProposerSlashingInvalid.ProposerNotSlashable
+          proposer_index)
       ok (core.result.Result.Err boe)
 
 end state_processing

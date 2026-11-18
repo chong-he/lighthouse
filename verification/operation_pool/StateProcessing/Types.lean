@@ -46,6 +46,13 @@ inductive ssz.bitfield.Error where
 | ExcessBits : ssz.bitfield.Error
 | InvalidByteCount : Std.Usize → Std.Usize → ssz.bitfield.Error
 
+/-- [types::core::slot_epoch::Slot]
+    Source: 'consensus/types/src/core/slot_epoch.rs', lines 27:0-27:15
+    Name pattern: [types::core::slot_epoch::Slot]
+    Visibility: public -/
+@[reducible, rust_type "types::core::slot_epoch::Slot"]
+def types.core.slot_epoch.Slot := Std.U64
+
 /-- [types::core::slot_epoch::Epoch]
     Source: 'consensus/types/src/core/slot_epoch.rs', lines 32:0-32:16
     Name pattern: [types::core::slot_epoch::Epoch]
@@ -102,6 +109,29 @@ inductive per_block_processing.errors.BlockOperationError (T : Type _) where
 | ArithError :
   safe_arith.ArithError →
   per_block_processing.errors.BlockOperationError T
+
+/-- [state_processing::per_block_processing::errors::ProposerSlashingInvalid]
+    Source: 'consensus/state_processing/src/per_block_processing/errors.rs', lines 324:0-343:1
+    Visibility: public -/
+@[discriminant isize]
+inductive per_block_processing.errors.ProposerSlashingInvalid where
+| ProposerUnknown :
+  Std.U64 →
+  per_block_processing.errors.ProposerSlashingInvalid
+| ProposalSlotMismatch :
+  types.core.slot_epoch.Slot →
+  types.core.slot_epoch.Slot →
+  per_block_processing.errors.ProposerSlashingInvalid
+| ProposerIndexMismatch :
+  Std.U64 →
+  Std.U64 →
+  per_block_processing.errors.ProposerSlashingInvalid
+| ProposalsIdentical : per_block_processing.errors.ProposerSlashingInvalid
+| ProposerNotSlashable :
+  Std.U64 →
+  per_block_processing.errors.ProposerSlashingInvalid
+| BadProposal1Signature : per_block_processing.errors.ProposerSlashingInvalid
+| BadProposal2Signature : per_block_processing.errors.ProposerSlashingInvalid
 
 /-- [state_processing::per_block_processing::errors::ExitInvalid]
     Source: 'consensus/state_processing/src/per_block_processing/errors.rs', lines 503:0-528:1

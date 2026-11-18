@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Regenerate the Lean translation of the voluntary-exit packing cores.
+# Regenerate the Lean translation of the packing cores for proposer slashings and voluntary
+# exits.
 #
 #   Rust --Charon--> LLBC --Aeneas--> {OperationPool,StateProcessing}/{Types,Funs}.lean
 #
@@ -8,10 +9,11 @@
 #
 #   operation_pool    filter_limit_operations, insert_proposer_slashing_indices,
 #                     insert_common_attesting_indices
-#   state_processing  verify_exit_validator_checks, verify_exit_pending_balance
+#   state_processing  verify_exit_validator_checks, verify_exit_pending_balance,
+#                     verify_proposer_slashing_validator_checks
 #
 # One run rooted in `operation_pool` cannot cover both: Aeneas emits a function of another crate
-# only when an extracted body calls it, and nothing extracted calls the `verify_exit` cores.
+# only when an extracted body calls it, and nothing extracted calls the `verify_*` cores.
 #
 # Requires the Aeneas release for commit 5a392f4b (Lean v4.35.0), which bundles the `aeneas` and
 # `charon` binaries and the Lean library. Point `AENEAS_DIR` at the unpacked release.
@@ -80,10 +82,13 @@ run_charon beacon_node/operation_pool "$HERE/.lake/operation_pool.llbc" \
 run_aeneas "$HERE/.lake/operation_pool.llbc" "$HERE/OperationPool"
 
 VERIFY_EXIT='crate::per_block_processing::verify_exit'
+VERIFY_PROPOSER_SLASHING='crate::per_block_processing::verify_proposer_slashing'
 run_charon consensus/state_processing "$HERE/.lake/state_processing.llbc" \
     --start-from "$VERIFY_EXIT::verify_exit_validator_checks" \
     --start-from "$VERIFY_EXIT::verify_exit_pending_balance" \
+    --start-from "$VERIFY_PROPOSER_SLASHING::verify_proposer_slashing_validator_checks" \
     --include "$VERIFY_EXIT" \
+    --include "$VERIFY_PROPOSER_SLASHING" \
     --include 'crate::per_block_processing::errors' \
     --include 'types::validator::validator' \
     --include 'types::core::slot_epoch' \

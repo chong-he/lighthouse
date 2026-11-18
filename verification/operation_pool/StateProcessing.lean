@@ -1,2 +1,3 @@
 import StateProcessing.Funs
 import StateProcessing.VerifyExit
+import StateProcessing.VerifyProposerSlashing

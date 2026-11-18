@@ -15,18 +15,28 @@ import StateProcessing
 `sorryAx` must not appear.
 -/
 
+#print axioms OperationPool.packed_proposer_slashings_and_exits_valid
+#print axioms OperationPool.packed_exits_valid_after_packed_proposer_slashings
+#print axioms OperationPool.packed_proposer_slashings_valid_uniform
+#print axioms OperationPool.packed_proposer_slashings_valid
 #print axioms OperationPool.packed_exits_valid_after_slashings_uniform
 #print axioms OperationPool.packed_exits_valid_after_slashings
 #print axioms OperationPool.packed_exits_valid
 #print axioms OperationPool.packed_exits_valid_direct
 #print axioms operation_pool.exclusionSet_covers
 #print axioms OperationPool.Bridge.exitGates_of_coresOk
+#print axioms OperationPool.Bridge.proposerSlashingGates_of_coreOk
+#print axioms OperationPool.Bridge.balances_size_of_reachable
 #print axioms OperationPool.Bridge.mem_qsort
 #print axioms EthCLSpecs.Proofs.Fulu.exitView_of_slashings
 #print axioms EthCLSpecs.Proofs.Fulu.processVoluntaryExit_succeeds
+#print axioms EthCLSpecs.Proofs.Fulu.proposerSlashings_succeed
+#print axioms EthCLSpecs.Proofs.Fulu.processProposerSlashing_succeeds
+#print axioms EthCLSpecs.Proofs.Fulu.slashValidator_succeeds
 #print axioms operation_pool.filter_limit_operations_eq
 #print axioms operation_pool.insert_proposer_slashing_indices_eq
 #print axioms operation_pool.insert_common_attesting_indices_eq
 #print axioms state_processing.verify_exit_validator_checks_ok_iff
 #print axioms state_processing.verify_exit_pending_balance_ok_iff
+#print axioms state_processing.verify_proposer_slashing_validator_checks_ok_iff
 #print axioms EthCLSpecs.Proofs.Fulu.voluntaryExits_succeed_of_exitView

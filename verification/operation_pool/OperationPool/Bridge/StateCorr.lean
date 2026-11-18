@@ -1,17 +1,22 @@
 import StateProcessing.VerifyExit
+import StateProcessing.VerifyProposerSlashing
 import OperationPool.Bridge.Scalars
 import EthCLSpecs.Proofs.Fulu.VoluntaryExits
+import EthCLSpecs.Proofs.Fulu.ProposerSlashings
 
 /-!
-# From Lighthouse's exit checks to the spec's exit gates
+# From Lighthouse's checks to the spec's gates
 
 Lighthouse's `verify_exit` reads four things from its `BeaconState`: the exiting validator's
 record, the current epoch, the validator's pending balance to withdraw, and two constants of the
-chain spec. `StateView` names those reads. `StateCorr view s` says that they agree with the spec
-state `s`. That agreement is TRUSTED: `BeaconState<E>` and its accessors are not extracted.
+chain spec. `verify_proposer_slashing` reads the proposer's record and the current epoch.
+`StateView` names those reads. `StateCorr view s` says that they agree with the spec state `s`.
+That agreement is TRUSTED: `BeaconState<E>` and its accessors are not extracted.
 
-`exitGates_of_coresOk` is the bridge. When both extracted cores of `verify_exit` accept an exit
-on a view that corresponds to `s`, the spec's `ExitGates` hold for that exit on `s`.
+Two theorems are the bridge. `exitGates_of_coresOk`: when both extracted cores of `verify_exit`
+accept an exit on a view that corresponds to `s`, the spec's `ExitGates` hold for that exit on
+`s`. `proposerSlashingGates_of_coreOk`: when the extracted core of `verify_proposer_slashing`
+accepts a proposer, the spec's `ProposerSlashingGates` hold for a slashing of that proposer.
 
 Names: this file opens the spec's namespace. Extracted Rust items are written with their full
 names, because both sides define `Validator`, `Epoch` and `VoluntaryExit`.
@@ -42,6 +47,12 @@ structure StateView where
   /-- `spec.shard_committee_period`. -/
   shardCommitteePeriod : Aeneas.Std.U64
 
+/-- The core of `verify_proposer_slashing` accepts the proposer on the view. -/
+def ProposerCoreOk (view : StateView) (proposerIndex : Aeneas.Std.U64) : Prop :=
+  state_processing.per_block_processing.verify_proposer_slashing.verify_proposer_slashing_validator_checks
+      (view.validatorAt proposerIndex) proposerIndex view.currentEpoch =
+    Aeneas.Std.Result.ok (Aeneas.Std.core.result.Result.Ok ())
+
 /-- Both cores of `verify_exit` accept the exit on the view. -/
 def CoresOk (view : StateView) (exit : RVoluntaryExit) : Prop :=
   state_processing.per_block_processing.verify_exit.verify_exit_validator_checks
@@ -64,11 +75,14 @@ structure StateCorr (view : StateView) (s : BeaconState) : Prop where
   farFuture : u64ToSpec view.farFutureEpoch = Const.farFutureEpoch
   /-- `shard_committee_period` is the spec's `SHARD_COMMITTEE_PERIOD`. -/
   period : u64ToSpec view.shardCommitteePeriod = Const.shardCommitteePeriod
-  /-- A validator the view returns is in the registry, with the same two epochs. -/
+  /-- A validator the view returns is in the registry, with the same three epochs and the same
+  slashed flag. -/
   validator : ∀ (i : Aeneas.Std.U64) (v : RValidator), view.validatorAt i = some v →
     i.val < s.validators.val.size ∧
     (s.validators[i.val]!).activationEpoch = u64ToSpec v.activation_epoch ∧
-    (s.validators[i.val]!).exitEpoch = u64ToSpec v.exit_epoch
+    (s.validators[i.val]!).exitEpoch = u64ToSpec v.exit_epoch ∧
+    (s.validators[i.val]!).withdrawableEpoch = u64ToSpec v.withdrawable_epoch ∧
+    (s.validators[i.val]!).slashed = v.slashed
   /-- The pending balance was computed: the state has a pending partial withdrawals queue, and
   the sum over it did not overflow. -/
   pendingSome : ∀ i : Aeneas.Std.U64, ∃ p, view.pendingAt i = some p
@@ -94,7 +108,7 @@ theorem exitGates_of_coresOk {view : StateView} {s : BeaconState} (hcorr : State
     have := hchecks.symm.trans hr
     simpa using this.symm
   obtain ⟨v, hv, hc⟩ := hiff.mp hrOk
-  obtain ⟨hlt, hact, hexit⟩ := hcorr.validator _ v hv
+  obtain ⟨hlt, hact, hexit, _⟩ := hcorr.validator _ v hv
   -- The pending-balance check gives a zero pending balance.
   obtain ⟨r', hr', hiff'⟩ := state_processing.verify_exit_pending_balance_ok_iff
     exit.validator_index (view.pendingAt exit.validator_index)
@@ -128,6 +142,32 @@ theorem exitGates_of_coresOk {view : StateView} {s : BeaconState} (hcorr : State
     apply UInt64.toNat_inj.mp
     simp only [UInt64.toNat_zero]
     omega
+
+/-- A proposer that the core of `verify_proposer_slashing` accepts passes the spec's gates on
+the corresponding state. `ps` is the spec's form of a slashing of that proposer. -/
+theorem proposerSlashingGates_of_coreOk {view : StateView} {s : BeaconState}
+    (hcorr : StateCorr view s) {proposerIndex : Aeneas.Std.U64} {ps : ProposerSlashing}
+    (hidx : ps.signedHeader1.message.proposerIndex = u64ToSpec proposerIndex)
+    (hok : ProposerCoreOk view proposerIndex) : ProposerSlashingGates s ps := by
+  obtain ⟨r, hr, hiff⟩ := state_processing.verify_proposer_slashing_validator_checks_ok_iff
+    (view.validatorAt proposerIndex) proposerIndex view.currentEpoch
+  have hrOk : r = Aeneas.Std.core.result.Result.Ok () := by
+    have := hok.symm.trans hr
+    simpa using this.symm
+  obtain ⟨v, hv, hc⟩ := hiff.mp hrOk
+  obtain ⟨hlt, hact, _, hwd, hsl⟩ := hcorr.validator _ v hv
+  have hidxNat : ps.signedHeader1.message.proposerIndex.toNat = proposerIndex.val := by
+    rw [hidx]
+    rfl
+  refine ⟨by rw [hidxNat]; exact hlt, ?_⟩
+  show isSlashableValidator (s.validators[ps.signedHeader1.message.proposerIndex.toNat]!)
+    (computeEpochAtSlot s.slot) = true
+  rw [hidxNat]
+  unfold isSlashableValidator
+  rw [hsl, hact, hwd, ← hcorr.epoch, hc.not_slashed]
+  simp only [Bool.not_false, Bool.true_and, Bool.and_eq_true, decide_eq_true_eq,
+    UInt64.le_iff_toNat_le, UInt64.lt_iff_toNat_lt, u64ToSpec_toNat]
+  exact ⟨hc.active_from, hc.not_withdrawable⟩
 
 end
 

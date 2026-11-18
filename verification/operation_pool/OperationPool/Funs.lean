@@ -57,7 +57,7 @@ def std.hash.random.RandomState.Insts.CoreHashBuildHasherDefaultHasher :
 }
 
 /-- [operation_pool::filter_limit_operations]: loop 0:
-    Source: 'beacon_node/operation_pool/src/lib.rs', lines 1:0-878:5 -/
+    Source: 'beacon_node/operation_pool/src/lib.rs', lines 1:0-881:5 -/
 @[rust_loop]
 def filter_limit_operations_loop
   {T : Type _} {V : Type _} {I : Type _} {F : Type _} {G : Type _}
@@ -99,7 +99,7 @@ def filter_limit_operations_loop
 partial_fixpoint
 
 /-- [operation_pool::filter_limit_operations]:
-    Source: 'beacon_node/operation_pool/src/lib.rs', lines 857:0-880:1 -/
+    Source: 'beacon_node/operation_pool/src/lib.rs', lines 860:0-883:1 -/
 def filter_limit_operations
   {T : Type _} {V : Type _} {I : Type _} {F : Type _} {G : Type _}
   {Clause0_IntoIter : Type _}
@@ -121,7 +121,7 @@ def filter_limit_operations
     (alloc.vec.Vec.new V) operations1
 
 /-- [operation_pool::insert_proposer_slashing_indices]: loop 0:
-    Source: 'beacon_node/operation_pool/src/lib.rs', lines 887:4-889:5 -/
+    Source: 'beacon_node/operation_pool/src/lib.rs', lines 890:4-892:5 -/
 @[rust_loop]
 def insert_proposer_slashing_indices_loop
   (iter : core.slice.iter.Iter
@@ -144,7 +144,7 @@ def insert_proposer_slashing_indices_loop
 partial_fixpoint
 
 /-- [operation_pool::insert_proposer_slashing_indices]:
-    Source: 'beacon_node/operation_pool/src/lib.rs', lines 886:0-890:1 -/
+    Source: 'beacon_node/operation_pool/src/lib.rs', lines 889:0-893:1 -/
 def insert_proposer_slashing_indices
   (indices : std.collections.hash.set.HashSet Std.U64
   std.hash.random.RandomState alloc.alloc.Global)
@@ -158,7 +158,7 @@ def insert_proposer_slashing_indices
   insert_proposer_slashing_indices_loop iter indices
 
 /-- [operation_pool::insert_common_attesting_indices]: loop 0:
-    Source: 'beacon_node/operation_pool/src/lib.rs', lines 901:4-903:5 -/
+    Source: 'beacon_node/operation_pool/src/lib.rs', lines 904:4-906:5 -/
 @[rust_loop]
 def insert_common_attesting_indices_loop0
   (iter : core.slice.iter.Iter Std.U64)
@@ -180,7 +180,7 @@ def insert_common_attesting_indices_loop0
 partial_fixpoint
 
 /-- [operation_pool::insert_common_attesting_indices]: loop 1:
-    Source: 'beacon_node/operation_pool/src/lib.rs', lines 904:4-908:5 -/
+    Source: 'beacon_node/operation_pool/src/lib.rs', lines 907:4-911:5 -/
 @[rust_loop]
 def insert_common_attesting_indices_loop1
   (iter : core.slice.iter.Iter Std.U64)
@@ -213,7 +213,7 @@ def insert_common_attesting_indices_loop1
 partial_fixpoint
 
 /-- [operation_pool::insert_common_attesting_indices]:
-    Source: 'beacon_node/operation_pool/src/lib.rs', lines 899:0-909:1 -/
+    Source: 'beacon_node/operation_pool/src/lib.rs', lines 902:0-912:1 -/
 def insert_common_attesting_indices
   (indices : std.collections.hash.set.HashSet Std.U64
   std.hash.random.RandomState alloc.alloc.Global) (first : Slice Std.U64)
