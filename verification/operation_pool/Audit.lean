@@ -16,6 +16,9 @@ import StateProcessing
 -/
 
 #print axioms OperationPool.packed_slashings_and_exits_valid
+#print axioms OperationPool.proposerSlashingFilter_spec
+#print axioms OperationPool.voluntaryExitFilter_spec
+#print axioms OperationPool.attesterCovers_spec
 #print axioms operation_pool.yields_slice
 #print axioms operation_pool.AttesterCover.model
 #print axioms operation_pool.exclusionSet_ok

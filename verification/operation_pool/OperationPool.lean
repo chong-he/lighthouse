@@ -5,6 +5,7 @@ import OperationPool.ExclusionSet
 import OperationPool.Concrete
 import OperationPool.Bridge.Scalars
 import OperationPool.Bridge.StateCorr
+import OperationPool.Closures
 import OperationPool.PackedProposerSlashingsValid
 import OperationPool.PackedAttesterSlashingsValid
 import OperationPool.PackedExitsValid

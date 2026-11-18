@@ -15,8 +15,10 @@ construction, so the main theorem can state the two functions on plain data:
   implementation satisfies `MaxCoverModel` (`AttesterCover.model`).
 
 Everything here is a model. That the Rust values behave as these do is TRUSTED: the pool's
-iterator yields the pool entries, the closures compute functions and do not panic, and
+iterator yields the pool entries, a mapping closure computes a function and does not panic, and
 `AttesterSlashingMaxCover` holds a map from validator index to effective balance.
+
+`OperationPool/Closures.lean` models the closures that read the state.
 -/
 
 open Aeneas Aeneas.Std Result

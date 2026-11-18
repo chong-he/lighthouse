@@ -25,21 +25,35 @@ op pool packs on.
 `get_slashings_and_exits` call by call:
 
 > `filter_limit_operations` returns the proposer slashings `outP`, and the spec processes them
-> in order from `s` and reaches `s₁`. `maximum_cover` returns the covers `outA`, and the spec
-> processes their slashings in order from `s₁` and reaches `s₂`. The two `insert_*` functions
-> build the exclusion set `excl` from `outP` and `outA`. `filter_limit_operations`, with a
-> filter that rejects the validators of `excl`, returns the exits `out`, and the spec processes
-> them in order from `s₂`. No call panics, and each list is within its limit.
+> in order from `s` and reaches `s₁`. `AttesterSlashingMaxCover::new` builds the covers
+> `covers`, with the proposers of `outP` as the set `to_be_slashed`. `maximum_cover` returns the
+> covers `outA`, and the spec processes their slashings in order from `s₁` and reaches `s₂`. The
+> two `insert_*` functions build the exclusion set `excl` from `outP` and `outA`.
+> `filter_limit_operations`, with a filter that rejects the validators of `excl`, returns the
+> exits `out`, and the spec processes them in order from `s₂`. No call panics, and each list is
+> within its limit.
 
 No hypothesis of this theorem is a run of the spec. Every hypothesis about the state is about
 the packing state `s`.
 
 The extracted functions are generic over an iterator, over closures and over a `MaxCover`
-implementation. The main theorem states them on concrete instances
-(`OperationPool/Concrete.lean`): a pool is a slice walked by Aeneas's slice iterator, a closure
-is a pure function, and a cover is `AttesterCover`, a model of `AttesterSlashingMaxCover`. The
-facts that the generic theorems take as hypotheses about the instances hold for these by
-construction. The three theorems below are the generic ones the main theorem joins.
+implementation. The main theorem states them on concrete instances, and proves the facts that
+the generic theorems take as hypotheses about the instances:
+
+- A pool is a slice walked by Aeneas's slice iterator (`OperationPool/Concrete.lean`).
+- A filter closure is a model that runs the extracted cores (`OperationPool/Closures.lean`).
+  `proposerSlashingFilter` calls the core of `verify_proposer_slashing`. `voluntaryExitFilter`
+  calls the two cores of `verify_exit`.
+- A cover is `AttesterCover`, a model of `AttesterSlashingMaxCover`. The covers are the ones
+  that `attesterCovers` builds: the model of `AttesterSlashingMaxCover::new`, which calls the
+  extracted `Validator::is_slashable_at`, on each pool entry.
+
+A closure also makes checks that no extracted core holds. The models take those as functions:
+`stillValid` is `signature_is_still_valid`, and `headersOk` is the three checks of
+`verify_proposer_slashing` on the two headers. The theorem assumes what each one implies for the
+spec, and nothing else about the closures.
+
+The three theorems below are the generic ones the main theorem joins.
 
 **Proposer slashings.** `packed_proposer_slashings_valid_uniform`
 (`OperationPool/PackedProposerSlashingsValid.lean`):
@@ -109,6 +123,9 @@ packing never runs.
 | `exclusionSet_covers` | `OperationPool/ExclusionSet.lean` | The exclusion set holds each packed proposer slashing's proposer and each index common to the two attestations of a packed attester slashing |
 | `proposerSlashingGates_of_coreOk` | `OperationPool/Bridge/StateCorr.lean` | A proposer the `verify_proposer_slashing` core accepts passes the spec's `ProposerSlashingGates` |
 | `exitGates_of_coresOk` | `OperationPool/Bridge/StateCorr.lean` | An exit both `verify_exit` cores accept passes the spec's `ExitGates` |
+| `proposerSlashingFilter_spec` | `OperationPool/Closures.lean` | The model of the proposer-slashing filter accepts an entry exactly when the signature is still valid, the headers pass, and the core accepts the proposer; no panic |
+| `voluntaryExitFilter_spec` | `OperationPool/Closures.lean` | The model of the exit filter accepts an entry exactly when the validator is outside the exclusion set, the signature is still valid, and both cores accept the exit; no panic |
+| `attesterCovers_spec` | `OperationPool/Closures.lean` | Each cover the model of `AttesterSlashingMaxCover::new` builds covers exactly the validators that both attestations name, that `Validator::is_slashable_at` accepts, and that `to_be_slashed` does not hold; no panic |
 | `yields_slice` | `OperationPool/Concrete.lean` | Aeneas's slice iterator yields the entries of the slice, in order |
 | `AttesterCover.model` | `OperationPool/Concrete.lean` | The model of `AttesterSlashingMaxCover` satisfies `MaxCoverModel` |
 | `exclusionSet_ok` | `OperationPool/ExclusionSet.lean` | The two `insert_*` functions do not panic |
@@ -150,8 +167,8 @@ operations in order, each one writing the state the next one reads.
 For the proposer slashings:
 
 1. Each packed slashing passed `verify_proposer_slashing` on the packing state
-   (`filter_limit_operations_eq`, `verify_proposer_slashing_validator_checks_ok_iff`,
-   `proposerSlashingGates_of_coreOk`).
+   (`filter_limit_operations_eq`, `proposerSlashingFilter_spec`,
+   `verify_proposer_slashing_validator_checks_ok_iff`, `proposerSlashingGates_of_coreOk`).
 2. The packed slashings name pairwise distinct proposers, and a slashing of one validator leaves
    the checks of the others alone (`SlashFrame`, `proposerSlashings_succeed`).
 3. `slash_validator`, which packing never runs, cannot fail when the exit queue and the
@@ -161,7 +178,7 @@ For the attester slashings, after the proposer slashings:
 
 1. Each `AttesterSlashingMaxCover` covers the validators its slashing can slash on the packing
    state: the validators both attestations name, that are slashable, and that no packed
-   proposer slashing names (`hcover`, trusted).
+   proposer slashing names (`attesterCovers_spec`).
 2. `maximum_cover` picks only items with a non-zero score, and after each pick it removes what
    the pick covers from every other item that can still be picked. So each picked slashing can
    slash a validator that no slashing picked before it can slash (`maximum_cover_spec`).
@@ -177,7 +194,7 @@ For the attester slashings, after the proposer slashings:
 For the exits, after the slashings:
 
 1. Each packed exit passed `verify_exit` on the packing state (`filter_limit_operations_eq`,
-   `verify_exit_*_ok_iff`, `exitGates_of_coresOk`).
+   `voluntaryExitFilter_spec`, `verify_exit_*_ok_iff`, `exitGates_of_coresOk`).
 2. The packed exits name pairwise distinct validators, and an exit of one validator leaves the
    checks of the others alone (`voluntaryExits_succeed_of_exitView`).
 3. No packed exit names a validator the packed slashings can slash (`exclusionSet_covers`), and
@@ -198,6 +215,9 @@ Seven functions, each free of `EthSpec`, that Aeneas translates:
 | `verify_proposer_slashing_validator_checks` | `state_processing` | The check of `verify_proposer_slashing` on the proposer's record |
 | `verify_exit_validator_checks` | `state_processing` | The checks of `verify_exit` on the validator record |
 | `verify_exit_pending_balance` | `state_processing` | The pending-withdrawal check of `verify_exit` |
+
+`Validator::is_slashable_at` and `Validator::is_active_at` are extracted with the cores that
+call them. The model of `AttesterSlashingMaxCover::new` calls the first one too.
 
 `maximum_cover` was a chain of iterator adaptors (`filter`, `max_by_key`, `for_each`), for which
 the Aeneas library has no model. It is now three written-out loops with the same behaviour: the
@@ -228,20 +248,18 @@ Not proved, and to be checked by inspection:
 |---|---|
 | Charon, Aeneas and the Lean kernel | Translation and checking |
 | The external models: `HashSet` as a list of distinct values (`with_capacity`, `insert`, `contains`), `metrics::set_max_cover_non_zero_items` as a call that returns, and the opaque external types and hashing functions | `OperationPool/TypesExternal.lean`, `OperationPool/FunsExternal.lean`, `StateProcessing/TypesExternal.lean`, `ExternalTypes.lean` |
-| The models of `OperationPool/Concrete.lean` stand for the Rust values. A pool's iterator yields each pool entry once, as the slice iterator does on a slice of the entries, and the attester-slashing iterator yields the covers that `AttesterSlashingMaxCover::new` builds. A closure computes a function of its argument and does not panic | The form of the main theorem: `sliceIntoIter`, `pureFn`, `cloneId` |
+| The models of `OperationPool/Concrete.lean` stand for the Rust values. A pool's iterator yields each pool entry once, as the slice iterator does on a slice of the entries. A mapping closure clones the operation of the entry and does not panic | The form of the main theorem: `sliceIntoIter`, `pureFn`, `cloneId` |
+| The models of `OperationPool/Closures.lean` compute what the Rust closures compute. Each definition quotes the Rust it models. The two filters are `proposerSlashingFilter` and `voluntaryExitFilter`. `attesterCovers` is what the `flat_map` iterator of `get_attester_slashings` yields, and `attesterCoverNew` is `AttesterSlashingMaxCover::new` with `get_slashable_indices_modular` written out. `proposerIndexSet` is the set `to_be_slashed` that `new` reads | The form of the main theorem |
+| The reads of the models are the reads of the Rust. `verify_proposer_slashing<E>`, `verify_exit<E>`, `get_slashable_indices_modular` and `get_effective_balance` read the validator at an index with `state.validators().get(index)`, and the models read `StateView.validatorAt`. The epoch is `state.current_epoch()`, the two constants come from the chain spec, and the pending balance is `get_pending_balance_to_withdraw(index).ok()` | `StateView` |
 | `AttesterCover` stands for `AttesterSlashingMaxCover`: the slashing, and `effective_balances` as a list of key and value. Its methods are those of the Rust: `score` is the sum of the values, which wraps as in a release build; `update_covering_set` is `retain` on the keys the picked cover does not have; `clone` returns its argument | `AttesterCover`, `AttesterCover.maxCover` |
-| The body of `get_slashings_and_exits` makes the four calls of the conclusion, with these arguments: the exclusion set is built from the packed slashings, and the exit filter is `!to_be_slashed.contains(index)` and then the checks of `get_voluntary_exits` | The form of the conclusion; `initial`, `indicesA` |
+| The body of `get_slashings_and_exits` makes the calls of the conclusion, with these arguments: `to_be_slashed` holds the proposers of the packed proposer slashings when the covers are built, the exclusion set is built from the packed slashings, and the exit filter reads that set | The form of the conclusion; `initial`, `indicesA` |
 | The three limits are the preset's: `E::MaxProposerSlashings`, `E::max_attester_slashings_electra()` and `E::MaxVoluntaryExits` | `hlimits` |
-| What a cover covers. `AttesterSlashingMaxCover::new` runs `get_slashable_indices_modular` with the closure `is_slashable_at(epoch) && !to_be_slashed.contains(index)`, so the keys of `effective_balances` are the validators that both attestations name, that are in the registry and slashable, and that `to_be_slashed` does not hold. `to_be_slashed` holds the proposers of the packed proposer slashings at that point | `hcoverA` (`SlashableOn`) |
-| A slashing of the attester-slashing pool passes the spec's checks before the walk, on the packing state: the two attestations are slashable, and each is a valid indexed attestation (indices not empty, sorted, in the registry, aggregate signature valid). `SigVerifiedOp` is built only after `verify_attester_slashing`, and `signature_is_still_valid` checks the fork versions. Lighthouse does not check again at packing that every attesting index is in the registry of the packing state: `new` looks up the indices that both attestations name, and no other | `hchecksA` (`AttesterSlashingChecks`) |
+| An attester slashing of the pool with a signature that is still valid passes the spec's checks before the walk, on the packing state: the two attestations are slashable, and each is a valid indexed attestation (indices not empty, sorted, in the registry, aggregate signature valid). `SigVerifiedOp` is built only after `verify_attester_slashing`, and `signature_is_still_valid` checks the fork versions. Lighthouse does not check again at packing that every attesting index is in the registry of the packing state: `new` looks up the indices that both attestations name, and no other | `hchecksA` (`AttesterSlashingChecks`) |
 | `get_attester_slashings` returns, for each picked cover, `convert_to_object(cover.intermediate())` | `toSpecA`, the conclusion |
 | The exit pool's `HashMap` is keyed by `message.validator_index`, and the proposer-slashing pool's by `proposer_index()` (`insert_voluntary_exit`, `insert_proposer_slashing`, `persistence.rs`), so the entries name pairwise distinct validators | `hkeys`, `hkeysP` |
-| What the two filter closures check. Exits: `filter(exit) && signature_is_still_valid && verify_exit(..).is_ok()`. Proposer slashings: `signature_is_still_valid && verify_proposer_slashing(..).is_ok()`. Both mappings clone the operation | `hkeepE`, `hkeepP` |
-| `verify_exit<E>` calls the two cores with the validator at the exit's index, the state's current epoch, the chain spec's constants, and the pending balance when it was computed | `hkeepE` (`CoresOk`), `StateView` |
-| `verify_proposer_slashing<E>` checks that the two headers have the same slot and the same proposer index and differ, and then calls the core with the validator at that index and the state's current epoch | `hkeepP` (`ProposerCoreOk`, `ProposerSlashingWellFormed`) |
-| Two headers that differ have different hash tree roots. Lighthouse compares the headers field by field; Etheorem's model compares their hash tree roots. The two agree unless SHA-256 collides | `hkeepP` (`ProposerSlashingWellFormed.differ`) |
+| A proposer slashing with headers that pass the three checks of `verify_proposer_slashing<E>` is well formed for the spec: the two headers have the same slot and the same proposer index, and differ. Lighthouse compares the headers field by field; Etheorem's model compares their hash tree roots. The two agree unless SHA-256 collides | `hheadersP` (`headersOk`, `ProposerSlashingWellFormed`) |
 | The Lighthouse state corresponds to the spec state: same validator epochs and slashed flags, same current epoch, and a pending balance that was computed without overflow | `hcorr` (`StateCorr`) |
-| An operation in a pool has valid signatures for the packing state. `SigVerifiedOp` is built only after a signature check, and a validator's public key never changes. For an exit, the Fulu domain is fixed at the Capella fork version. For a proposer slashing, `signature_is_still_valid` checks that the fork version at the header's epoch is the one the signature was checked under | `hkeepE` (`ExitSigned`), `hkeepP` (`ProposerSlashingSigned`) |
+| A proposer slashing or an exit of a pool with a signature that is still valid has valid signatures for the packing state. `SigVerifiedOp` is built only after a signature check, and a validator's public key never changes. For an exit, the Fulu domain is fixed at the Capella fork version. For a proposer slashing, `signature_is_still_valid` checks that the fork version at the header's epoch is the one the signature was checked under | `hsignedE` (`ExitSigned`), `hsignedP` (`ProposerSlashingSigned`) |
 | The spec's forms of the packed operations carry the same indices and epochs as the Rust values | `hmessage`, `hindexP`, `hindicesA` |
 | Etheorem's Fulu model is the consensus spec, with a valid preset and config (`PresetValid`, `ConfigValid`, proved for `mainnet` and `minimal`) | The spec-side theorems |
 
@@ -260,8 +278,10 @@ Assumptions about the state, by design:
   for those is proved in `../block_production`.
 - **The `MaxCover` implementation.** `maximum_cover` is extracted and proved. The methods of
   `AttesterSlashingMaxCover` and its constructor are generic over `EthSpec` and are not
-  extracted. `AttesterCover` models the methods, and `hcoverA` states what the constructor
-  computes.
+  extracted. `AttesterCover` models the methods, and `attesterCoverNew` models the constructor.
+- **The closures.** The three closures of `get_slashings_and_exits` read `BeaconState<E>` and
+  are not extracted. Their models call the extracted cores, and the rest of each model is
+  written by hand from the Rust.
 - **Steps before the operations.** A block runs its header, withdrawals, execution payload,
   RANDAO and eth1 data before the proposer slashings, and its attestations before the exits.
   None of them writes what a slashing or an exit reads, apart from balances, but that is not
@@ -291,6 +311,8 @@ OperationPool/
   MaxCover.lean               proof: the greedy max cover
   ExclusionSet.lean           proof: the exclusion set
   Concrete.lean               slice pools, pure closures and the model of a cover
+  Closures.lean               the filter closures and `AttesterSlashingMaxCover::new`, modelled
+                              on the extracted cores
   Bridge/Scalars.lean         Rust `u64` to the spec's `UInt64`
   Bridge/StateCorr.lean       the state correspondence; Rust checks to spec gates
   PackedProposerSlashingsValid.lean   the proposer slashings
