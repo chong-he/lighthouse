@@ -15,6 +15,10 @@ import StateProcessing
 `sorryAx` must not appear.
 -/
 
+#print axioms OperationPool.packed_slashings_and_exits_valid
+#print axioms OperationPool.packed_attester_slashings_valid_uniform
+#print axioms OperationPool.packed_attester_slashings_valid
+#print axioms operation_pool.maximum_cover_spec
 #print axioms OperationPool.packed_proposer_slashings_and_exits_valid
 #print axioms OperationPool.packed_exits_valid_after_packed_proposer_slashings
 #print axioms OperationPool.packed_proposer_slashings_valid_uniform
@@ -27,7 +31,10 @@ import StateProcessing
 #print axioms OperationPool.Bridge.exitGates_of_coresOk
 #print axioms OperationPool.Bridge.proposerSlashingGates_of_coreOk
 #print axioms OperationPool.Bridge.balances_size_of_reachable
-#print axioms OperationPool.Bridge.mem_qsort
+#print axioms OperationPool.Bridge.isSlashableValidator_of_slashableOn
+#print axioms EthCLLib.Proofs.mem_qsort
+#print axioms EthCLSpecs.Proofs.Fulu.attesterSlashings_succeed
+#print axioms EthCLSpecs.Proofs.Fulu.processAttesterSlashing_succeeds
 #print axioms EthCLSpecs.Proofs.Fulu.exitView_of_slashings
 #print axioms EthCLSpecs.Proofs.Fulu.processVoluntaryExit_succeeds
 #print axioms EthCLSpecs.Proofs.Fulu.proposerSlashings_succeed

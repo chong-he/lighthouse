@@ -65,6 +65,14 @@ noncomputable def std.collections.hash.set.HashSet.insert
   if value ∈ s.toList then ok (false, s)
   else ok (true, std.collections.hash.set.HashSet.ofList (value :: s.toList))
 
+/-! ## Metrics -/
+
+/-- [operation_pool::metrics::set_max_cover_non_zero_items]
+
+    Sets a Prometheus gauge. The caller reads no result, and the model assumes that the call does
+    not panic. -/
+def metrics.set_max_cover_non_zero_items (_ : Str) (_ : Std.Usize) : Result Unit := ok ()
+
 /-! The hashing functions below are never called by the extracted code; they only appear as
 fields of trait instances. They are left opaque. -/
 

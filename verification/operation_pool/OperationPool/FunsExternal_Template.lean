@@ -95,3 +95,8 @@ axiom
   std.hash.random.RandomState.Insts.CoreHashBuildHasherDefaultHasher.build_hasher
   : std.hash.random.RandomState → Result std.hash.random.DefaultHasher
 
+/-- [operation_pool::metrics::set_max_cover_non_zero_items]:
+    Source: 'beacon_node/operation_pool/src/metrics.rs', lines 43:0-45:1
+    Visibility: public -/
+axiom metrics.set_max_cover_non_zero_items : Str → Std.Usize → Result Unit
+

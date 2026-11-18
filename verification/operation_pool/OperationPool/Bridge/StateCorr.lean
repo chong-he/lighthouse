@@ -13,10 +13,12 @@ chain spec. `verify_proposer_slashing` reads the proposer's record and the curre
 `StateView` names those reads. `StateCorr view s` says that they agree with the spec state `s`.
 That agreement is TRUSTED: `BeaconState<E>` and its accessors are not extracted.
 
-Two theorems are the bridge. `exitGates_of_coresOk`: when both extracted cores of `verify_exit`
-accept an exit on a view that corresponds to `s`, the spec's `ExitGates` hold for that exit on
-`s`. `proposerSlashingGates_of_coreOk`: when the extracted core of `verify_proposer_slashing`
-accepts a proposer, the spec's `ProposerSlashingGates` hold for a slashing of that proposer.
+Three theorems are the bridge. `exitGates_of_coresOk`: when both extracted cores of
+`verify_exit` accept an exit on a view that corresponds to `s`, the spec's `ExitGates` hold for
+that exit on `s`. `proposerSlashingGates_of_coreOk`: when the extracted core of
+`verify_proposer_slashing` accepts a proposer, the spec's `ProposerSlashingGates` hold for a
+slashing of that proposer. `isSlashableValidator_of_slashableOn`: a validator that the extracted
+`Validator::is_slashable_at` accepts is slashable by the spec's `is_slashable_validator`.
 
 Names: this file opens the spec's namespace. Extracted Rust items are written with their full
 names, because both sides define `Validator`, `Epoch` and `VoluntaryExit`.
@@ -52,6 +54,14 @@ def ProposerCoreOk (view : StateView) (proposerIndex : Aeneas.Std.U64) : Prop :=
   state_processing.per_block_processing.verify_proposer_slashing.verify_proposer_slashing_validator_checks
       (view.validatorAt proposerIndex) proposerIndex view.currentEpoch =
     Aeneas.Std.Result.ok (Aeneas.Std.core.result.Result.Ok ())
+
+/-- The view has a validator at `index`, and `Validator::is_slashable_at` accepts it at the
+current epoch. This is the check that `AttesterSlashingMaxCover::new` makes on each validator
+that both attestations of a slashing name. -/
+def SlashableOn (view : StateView) (index : Aeneas.Std.U64) : Prop :=
+  ∃ v, view.validatorAt index = some v ∧
+    state_processing.types.validator.validator.Validator.is_slashable_at v view.currentEpoch =
+      Aeneas.Std.Result.ok true
 
 /-- Both cores of `verify_exit` accept the exit on the view. -/
 def CoresOk (view : StateView) (exit : RVoluntaryExit) : Prop :=
@@ -168,6 +178,25 @@ theorem proposerSlashingGates_of_coreOk {view : StateView} {s : BeaconState}
   simp only [Bool.not_false, Bool.true_and, Bool.and_eq_true, decide_eq_true_eq,
     UInt64.le_iff_toNat_le, UInt64.lt_iff_toNat_lt, u64ToSpec_toNat]
   exact ⟨hc.active_from, hc.not_withdrawable⟩
+
+/-- A validator that `Validator::is_slashable_at` accepts on the view is slashable on the
+corresponding state, by the spec's `is_slashable_validator`. -/
+theorem isSlashableValidator_of_slashableOn {view : StateView} {s : BeaconState}
+    (hcorr : StateCorr view s) {index : Aeneas.Std.U64} (h : SlashableOn view index) :
+    isSlashableValidator (s.validators[(u64ToSpec index).toNat]!) (computeEpochAtSlot s.slot) =
+      true := by
+  obtain ⟨v, hv, hslash⟩ := h
+  rw [state_processing.is_slashable_at_eq] at hslash
+  have hc : v.slashed = false ∧ v.activation_epoch.val ≤ view.currentEpoch.val ∧
+      view.currentEpoch.val < v.withdrawable_epoch.val := by
+    simpa using hslash
+  obtain ⟨_, hact, _, hwd, hsl⟩ := hcorr.validator _ v hv
+  rw [u64ToSpec_toNat]
+  unfold isSlashableValidator
+  rw [hsl, hact, hwd, ← hcorr.epoch, hc.1]
+  simp only [Bool.not_false, Bool.true_and, Bool.and_eq_true, decide_eq_true_eq,
+    UInt64.le_iff_toNat_le, UInt64.lt_iff_toNat_lt, u64ToSpec_toNat]
+  exact ⟨hc.2.1, hc.2.2⟩
 
 end
 

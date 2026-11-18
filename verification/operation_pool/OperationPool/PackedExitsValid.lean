@@ -1,13 +1,12 @@
 import OperationPool.FilterLimit
 import OperationPool.ExclusionSet
-import OperationPool.Bridge.QSort
 import OperationPool.Bridge.StateCorr
-import EthCLSpecs.Proofs.Fulu.VoluntaryExits.Slashings
+import EthCLSpecs.Proofs.Fulu.AttesterSlashings
 
 /-!
 # The packed voluntary exits are valid
 
-The main theorem of this project. `OperationPool::get_voluntary_exits` packs voluntary exits
+`OperationPool::get_voluntary_exits` packs voluntary exits
 with `filter_limit_operations`. `packed_exits_valid` states that the spec processes the packed
 exits, in order, without an error.
 
@@ -161,19 +160,6 @@ theorem packed_exits_valid_direct {it : It} {pool : List Op}
     (ExitView.refl (fun _ => False) s)
     (fun op hop hk => ⟨fun h => h, hkeep op hop hk⟩)
 
-omit [Config] [HasherTag] [CryptoBackend] [PresetValid] [ConfigValid] in
-/-- An index `process_attester_slashing` walks is named by both attestations of the slashing:
-the walked array is the sorted intersection of the two index lists. -/
-theorem mem_attesterSlashingIndices {asl : AttesterSlashing} {i : ValidatorIndex}
-    (h : i ∈ attesterSlashingIndices asl) :
-    i ∈ asl.attestation1.attestingIndices.toArray ∧
-      i ∈ asl.attestation2.attestingIndices.toArray := by
-  unfold attesterSlashingIndices at h
-  rw [mem_qsort] at h
-  unfold EthCLLib.Spec.arrayInter at h
-  rw [Array.mem_filter] at h
-  exact ⟨h.1, by simpa using h.2⟩
-
 /-- The packed voluntary exits are processed by the spec without an error after the packed
 proposer and attester slashings of the same block.
 
@@ -236,7 +222,7 @@ theorem packed_exits_valid_after_slashings {it : It} {pool : List Op}
       (fun asl hasl i hi => ?_) hslash₁ hslash₂
     · obtain ⟨r, hr, heq⟩ := hproposers ps hps
       exact ⟨_, hcovP r hr, heq⟩
-    · obtain ⟨h1, h2⟩ := mem_attesterSlashingIndices hi
+    · obtain ⟨h1, h2⟩ := mem_attesterSlashingIndices.mp hi
       obtain ⟨p, hp, hl1, hl2⟩ := hattesters asl hasl
       have h1' : i ∈ p.1.val.map u64ToSpec := hl1 ▸ Array.mem_toList_iff.mpr h1
       have h2' : i ∈ p.2.val.map u64ToSpec := hl2 ▸ Array.mem_toList_iff.mpr h2

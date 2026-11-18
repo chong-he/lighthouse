@@ -233,4 +233,212 @@ def insert_common_attesting_indices
       second
   insert_common_attesting_indices_loop1 iter1 indices in_first1
 
+/-- [operation_pool::max_cover::{operation_pool::max_cover::MaxCoverItem<T>}::new]:
+    Source: 'beacon_node/operation_pool/src/max_cover.rs', lines 41:4-46:5 -/
+def max_cover.MaxCoverItem.new
+  {T : Type _} (item : T) : Result (max_cover.MaxCoverItem T) := do
+  ok { item, available := true }
+
+/-- [operation_pool::max_cover::update_covering_sets]: loop 0:
+    Source: 'beacon_node/operation_pool/src/max_cover.rs', lines 116:4-121:5 -/
+@[rust_loop]
+def max_cover.update_covering_sets_loop
+  {T : Type _} {Clause0_Object : Type _} {Clause0_Intermediate : Type _}
+  {Clause0_Set : Type _} (MaxCoverInst : max_cover.MaxCover T Clause0_Object
+  Clause0_Intermediate Clause0_Set)
+  (iter : core.slice.iter.IterMut (max_cover.MaxCoverItem T))
+  (back : core.slice.iter.IterMut (max_cover.MaxCoverItem T) →
+  core.slice.iter.IterMut (max_cover.MaxCoverItem T)) (best : T) :
+  Result (core.slice.iter.IterMut (max_cover.MaxCoverItem T))
+  := do
+  let (o, iter1, next_back) ← core.slice.iter.IteratorIterMut.next iter
+  match o with
+  | none => ok (let im := next_back iter1 none
+                back im)
+  | some x =>
+    if x.available
+    then
+      let i ← MaxCoverInst.score x.item
+      if i != 0#usize
+      then
+        let t ← MaxCoverInst.intermediate best
+        let t1 ← MaxCoverInst.covering_set best
+        let t2 ← MaxCoverInst.update_covering_set x.item t t1
+        max_cover.update_covering_sets_loop MaxCoverInst iter1
+          (fun im =>
+            let im1 := next_back im (some { x with item := t2 })
+            back im1) best
+      else
+        max_cover.update_covering_sets_loop MaxCoverInst iter1
+          (fun im => let im1 := next_back im o
+                     back im1) best
+    else
+      max_cover.update_covering_sets_loop MaxCoverInst iter1
+        (fun im => let im1 := next_back im o
+                   back im1) best
+partial_fixpoint
+
+/-- [operation_pool::max_cover::update_covering_sets]:
+    Source: 'beacon_node/operation_pool/src/max_cover.rs', lines 115:0-122:1 -/
+def max_cover.update_covering_sets
+  {T : Type _} {Clause0_Object : Type _} {Clause0_Intermediate : Type _}
+  {Clause0_Set : Type _} (MaxCoverInst : max_cover.MaxCover T Clause0_Object
+  Clause0_Intermediate Clause0_Set)
+  (all_items : Slice (max_cover.MaxCoverItem T)) (best : T) :
+  Result (Slice (max_cover.MaxCoverItem T))
+  := do
+  let (iter, iter_mut_back) ← core.slice.Slice.iter_mut all_items
+  let back ←
+    max_cover.update_covering_sets_loop MaxCoverInst iter (fun im => im) best
+  ok (iter_mut_back back)
+
+/-- [operation_pool::max_cover::best_item_index]: loop 0:
+    Source: 'beacon_node/operation_pool/src/max_cover.rs', lines 101:4-109:5 -/
+@[rust_loop]
+def max_cover.best_item_index_loop
+  {T : Type _} {Clause0_Object : Type _} {Clause0_Intermediate : Type _}
+  {Clause0_Set : Type _} (MaxCoverInst : max_cover.MaxCover T Clause0_Object
+  Clause0_Intermediate Clause0_Set)
+  (iter : core.iter.adapters.enumerate.Enumerate (core.slice.iter.Iter
+  (max_cover.MaxCoverItem T))) (best_index : Option Std.Usize)
+  (best_score : Std.Usize) :
+  Result (Option Std.Usize)
+  := do
+  let (o, iter1) ←
+    core.iter.adapters.enumerate.IteratorEnumerate.next
+      (core.iter.traits.iterator.IteratorSliceIter (max_cover.MaxCoverItem T))
+      iter
+  match o with
+  | none => ok best_index
+  | some p =>
+    let (index, x) := p
+    if x.available
+    then
+      let score ← MaxCoverInst.score x.item
+      if score != 0#usize
+      then
+        if score >= best_score
+        then
+          max_cover.best_item_index_loop MaxCoverInst iter1 (some index) score
+        else
+          max_cover.best_item_index_loop MaxCoverInst iter1 best_index
+            best_score
+      else
+        max_cover.best_item_index_loop MaxCoverInst iter1 best_index best_score
+    else
+      max_cover.best_item_index_loop MaxCoverInst iter1 best_index best_score
+partial_fixpoint
+
+/-- [operation_pool::max_cover::best_item_index]:
+    Source: 'beacon_node/operation_pool/src/max_cover.rs', lines 98:0-111:1 -/
+def max_cover.best_item_index
+  {T : Type _} {Clause0_Object : Type _} {Clause0_Intermediate : Type _}
+  {Clause0_Set : Type _} (MaxCoverInst : max_cover.MaxCover T Clause0_Object
+  Clause0_Intermediate Clause0_Set)
+  (all_items : Slice (max_cover.MaxCoverItem T)) :
+  Result (Option Std.Usize)
+  := do
+  let i ← core.slice.Slice.iter all_items
+  let iter ←
+    core.iter.traits.iterator.Iterator.enumerate.trait_default
+      (core.iter.traits.iterator.IteratorSliceIter (max_cover.MaxCoverItem T))
+      i
+  max_cover.best_item_index_loop MaxCoverInst iter none 0#usize
+
+/-- [operation_pool::max_cover::maximum_cover]: loop 0:
+    Source: 'beacon_node/operation_pool/src/max_cover.rs', lines 63:4-67:5
+    Visibility: public -/
+@[rust_loop]
+def max_cover.maximum_cover_loop0
+  {I : Type _} {T : Type _} {Clause0_IntoIter : Type _} {Clause1_Object :
+  Type _} {Clause1_Intermediate : Type _} {Clause1_Set : Type _}
+  (coreitertraitscollectIntoIteratorInst :
+  core.iter.traits.collect.IntoIterator I T Clause0_IntoIter) (MaxCoverInst :
+  max_cover.MaxCover T Clause1_Object Clause1_Intermediate Clause1_Set)
+  (iter : Clause0_IntoIter)
+  (all_items : alloc.vec.Vec (max_cover.MaxCoverItem T)) :
+  Result (alloc.vec.Vec (max_cover.MaxCoverItem T))
+  := do
+  let (o, iter1) ←
+    coreitertraitscollectIntoIteratorInst.iteratorInst.next iter
+  match o with
+  | none => ok all_items
+  | some item =>
+    let i ← MaxCoverInst.score item
+    if i != 0#usize
+    then
+      let mci ← max_cover.MaxCoverItem.new item
+      let all_items1 ← alloc.vec.Vec.push all_items mci
+      max_cover.maximum_cover_loop0 coreitertraitscollectIntoIteratorInst
+        MaxCoverInst iter1 all_items1
+    else
+      max_cover.maximum_cover_loop0 coreitertraitscollectIntoIteratorInst
+        MaxCoverInst iter1 all_items
+partial_fixpoint
+
+/-- [operation_pool::max_cover::maximum_cover]: loop 1:
+    Source: 'beacon_node/operation_pool/src/max_cover.rs', lines 73:4-92:1
+    Visibility: public -/
+@[rust_loop]
+def max_cover.maximum_cover_loop1
+  {I : Type _} {T : Type _} {Clause0_IntoIter : Type _} {Clause1_Object :
+  Type _} {Clause1_Intermediate : Type _} {Clause1_Set : Type _}
+  (coreitertraitscollectIntoIteratorInst :
+  core.iter.traits.collect.IntoIterator I T Clause0_IntoIter) (MaxCoverInst :
+  max_cover.MaxCover T Clause1_Object Clause1_Intermediate Clause1_Set)
+  (iter : core.ops.range.Range Std.Usize)
+  (all_items : alloc.vec.Vec (max_cover.MaxCoverItem T))
+  (result : alloc.vec.Vec T) :
+  Result (alloc.vec.Vec T)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok result
+  | some _ =>
+    let s := alloc.vec.Vec.deref all_items
+    let o1 ← max_cover.best_item_index MaxCoverInst s
+    match o1 with
+    | none => ok result
+    | some best_index =>
+      let (s1, deref_mut_back) ← lift (alloc.vec.Vec.deref_mut all_items)
+      let (o2, get_mut_back) ←
+        core.slice.Slice.get_mut (core.slice.index.SliceIndexUsizeSlice
+          (max_cover.MaxCoverItem T)) s1 best_index
+      match o2 with
+      | none => ok result
+      | some best_item =>
+        let best ← MaxCoverInst.corecloneCloneInst.clone best_item.item
+        let s2 := get_mut_back (some { best_item with available := false })
+        let all_items1 := deref_mut_back s2
+        let (s3, deref_mut_back1) ← lift (alloc.vec.Vec.deref_mut all_items1)
+        let s4 ← max_cover.update_covering_sets MaxCoverInst s3 best
+        let result1 ← alloc.vec.Vec.push result best
+        let all_items2 := deref_mut_back1 s4
+        max_cover.maximum_cover_loop1 coreitertraitscollectIntoIteratorInst
+          MaxCoverInst iter1 all_items2 result1
+partial_fixpoint
+
+/-- [operation_pool::max_cover::maximum_cover]:
+    Source: 'beacon_node/operation_pool/src/max_cover.rs', lines 56:0-92:1
+    Visibility: public -/
+def max_cover.maximum_cover
+  {I : Type _} {T : Type _} {Clause0_IntoIter : Type _} {Clause1_Object :
+  Type _} {Clause1_Intermediate : Type _} {Clause1_Set : Type _}
+  (coreitertraitscollectIntoIteratorInst :
+  core.iter.traits.collect.IntoIterator I T Clause0_IntoIter) (MaxCoverInst :
+  max_cover.MaxCover T Clause1_Object Clause1_Intermediate Clause1_Set)
+  (items_iter : I) (limit : Std.Usize) (label : Str) :
+  Result (alloc.vec.Vec T)
+  := do
+  let iter ← coreitertraitscollectIntoIteratorInst.into_iter items_iter
+  let all_items ←
+    max_cover.maximum_cover_loop0 coreitertraitscollectIntoIteratorInst
+      MaxCoverInst iter (alloc.vec.Vec.new (max_cover.MaxCoverItem T))
+  let i := alloc.vec.Vec.len all_items
+  metrics.set_max_cover_non_zero_items label i
+  max_cover.maximum_cover_loop1 coreitertraitscollectIntoIteratorInst
+    MaxCoverInst { start := 0#usize, «end» := limit } all_items
+    (alloc.vec.Vec.new T)
+
 end operation_pool

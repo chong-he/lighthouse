@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 #
-# Regenerate the Lean translation of the packing cores for proposer slashings and voluntary
-# exits.
+# Regenerate the Lean translation of the packing cores for proposer slashings, attester slashings
+# and voluntary exits.
 #
 #   Rust --Charon--> LLBC --Aeneas--> {OperationPool,StateProcessing}/{Types,Funs}.lean
 #
 # Two crates hold the cores, and each is extracted from its own crate:
 #
 #   operation_pool    filter_limit_operations, insert_proposer_slashing_indices,
-#                     insert_common_attesting_indices
+#                     insert_common_attesting_indices, max_cover::maximum_cover
 #   state_processing  verify_exit_validator_checks, verify_exit_pending_balance,
 #                     verify_proposer_slashing_validator_checks
 #
@@ -76,9 +76,11 @@ run_charon beacon_node/operation_pool "$HERE/.lake/operation_pool.llbc" \
     --start-from 'crate::filter_limit_operations' \
     --start-from 'crate::insert_proposer_slashing_indices' \
     --start-from 'crate::insert_common_attesting_indices' \
+    --start-from 'crate::max_cover::maximum_cover' \
     --include 'crate::filter_limit_operations' \
     --include 'crate::insert_proposer_slashing_indices' \
-    --include 'crate::insert_common_attesting_indices'
+    --include 'crate::insert_common_attesting_indices' \
+    --include 'crate::max_cover'
 run_aeneas "$HERE/.lake/operation_pool.llbc" "$HERE/OperationPool"
 
 VERIFY_EXIT='crate::per_block_processing::verify_exit'

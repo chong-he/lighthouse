@@ -69,4 +69,22 @@ structure types.slashing.proposer_slashing.ProposerSlashing where
   signed_header_2 :
     types.block.signed_beacon_block_header.SignedBeaconBlockHeader
 
+/-- Trait declaration: [operation_pool::max_cover::MaxCover]
+    Source: 'beacon_node/operation_pool/src/max_cover.rs', lines 11:0-31:1
+    Visibility: public -/
+structure max_cover.MaxCover (Self : Type _) (Self_Object : Type _)
+  (Self_Intermediate : Type _) (Self_Set : Type _) where
+  corecloneCloneInst : core.clone.Clone Self
+  intermediate : Self → Result Self_Intermediate
+  convert_to_object : Self_Intermediate → Result Self_Object
+  covering_set : Self → Result Self_Set
+  update_covering_set : Self → Self_Intermediate → Self_Set → Result Self
+  score : Self → Result Std.Usize
+
+/-- [operation_pool::max_cover::MaxCoverItem]
+    Source: 'beacon_node/operation_pool/src/max_cover.rs', lines 35:0-38:1 -/
+structure max_cover.MaxCoverItem (T : Type _) where
+  item : T
+  available : Bool
+
 end operation_pool
