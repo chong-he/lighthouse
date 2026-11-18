@@ -31,7 +31,7 @@ use rand::seq::SliceRandom;
 use ssz::BitVector;
 use state_processing::per_block_processing::errors::AttestationValidationError;
 use state_processing::per_block_processing::{
-    VerifySignatures, get_slashable_indices_modular, verify_exit,
+    VerifySignatures, get_slashable_indices_modular, verify_exit, verify_proposer_slashing,
 };
 use state_processing::{SigVerifiedOp, VerifyOperation};
 use std::collections::{HashMap, HashSet, hash_map::Entry};
@@ -499,10 +499,13 @@ impl<E: EthSpec> OperationPool<E> {
             self.proposer_slashings.read().values(),
             |slashing| {
                 slashing.signature_is_still_valid(&state.fork())
-                    && state
-                        .validators()
-                        .get(slashing.as_inner().signed_header_1.message.proposer_index as usize)
-                        .is_some_and(|validator| validator.is_slashable_at(state.current_epoch()))
+                    && verify_proposer_slashing(
+                        slashing.as_inner(),
+                        state,
+                        VerifySignatures::False,
+                        spec,
+                    )
+                    .is_ok()
             },
             |slashing| slashing.as_inner().clone(),
             E::MaxProposerSlashings::to_usize(),
