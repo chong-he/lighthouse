@@ -16,13 +16,13 @@ import StateProcessing
 -/
 
 #print axioms OperationPool.packed_slashings_and_exits_valid
-#print axioms OperationPool.operationsRoom_mainnet_limits
-#print axioms OperationPool.operationsRoom_minimal_limits
 #print axioms operation_pool.yields_slice
 #print axioms operation_pool.AttesterCover.model
 #print axioms operation_pool.exclusionSet_ok
 #print axioms EthCLSpecs.Proofs.Fulu.OperationsRoom.exits_of_timeBound
 #print axioms EthCLSpecs.Proofs.Fulu.OperationsRoom.rewards_of_supplyCap
+#print axioms EthCLSpecs.Proofs.Fulu.configValidMainnet
+#print axioms EthCLSpecs.Proofs.Fulu.ReachableState.simpleStateInvariants
 #print axioms OperationPool.packed_attester_slashings_valid_uniform
 #print axioms OperationPool.packed_attester_slashings_valid
 #print axioms operation_pool.maximum_cover_spec

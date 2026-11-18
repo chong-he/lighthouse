@@ -3,6 +3,7 @@ import OperationPool.PackedProposerSlashingsValid
 import OperationPool.PackedAttesterSlashingsValid
 import OperationPool.PackedExitsValid
 import EthCLSpecs.Proofs.Fulu.StateBounds
+import EthCLSpecs.Proofs.Fulu.ReachableInvariants
 
 /-!
 # The packed slashings and voluntary exits of a block are valid together
@@ -28,10 +29,10 @@ construction:
 * the exit filter is the closure the Rust builds: it rejects the validators of the exclusion
   set, and then applies the checks of `get_voluntary_exits`.
 
-The hypotheses about the state are four. `SimpleStateInvariants` holds for every reachable
-state. `TimeBound` and `SupplyCap` keep the arithmetic away from `2 ^ 64`, and `OperationsRoom`
-says that the constants and the three limits leave room within those two bounds. Etheorem
-proves `OperationsRoom` for the block limits of mainnet and of minimal.
+The packing state `s` is a reachable state of the spec, within `TimeBound` and
+`SupplyCap (2 ^ 58)`. Those two bounds keep the arithmetic away from `2 ^ 64`. A valid config
+leaves room within them for a block with as many operations as the preset allows
+(`ConfigValid.operationsRoom`), and the three limits are at most the preset's.
 
 The hypotheses that are not proved from extracted code are the trusted base. `README.md` lists
 them.
@@ -76,9 +77,10 @@ The hypotheses:
 * `hindexP`, `hindicesA`, `hmessage`: the spec's forms carry the Rust indices and epochs.
 * `hkeysP`, `hkeys`: a pool holds one operation per validator.
 * `hcorr`: the state Lighthouse reads corresponds to the spec state `s`.
-* `hinv`, `hproposer`, `htime`, `hsupply`, `hroom`: `s` has the invariants of a reachable
-  state, its proposer is in the registry, it is within the time bound and the supply cap, and
-  the constants and the limits leave room.
+* `hlimits`: the three limits are at most the preset's block limits.
+* `hanchors`, `hreach`: `s` is reachable from anchor states that have the simple invariants.
+* `hproposer`, `htime`, `hsupply`: the proposer of `s` is in the registry, and `s` is within the
+  time bound and a supply cap of `2 ^ 58` Gwei.
 * `hkeepP`, `hkeepE`: a filter accepts an entry only when the cores of the `verify_*` function
   accept it on `view`, and the operation is well formed and signed.
 * `hcoverA`: a cover holds the validators that both attestations name, that
@@ -116,11 +118,14 @@ theorem packed_slashings_and_exits_valid
         (slashingOf b).signed_header_1.message.proposer_index)
     (hkeys : pool.val.Pairwise fun a b =>
       (message (exitOf a)).validator_index ≠ (message (exitOf b)).validator_index)
+    (hlimits : limitP.val ≤ Const.maxProposerSlashings ∧
+      limitA.val ≤ Const.maxAttesterSlashingsElectra ∧ limit.val ≤ Const.maxVoluntaryExits)
     {view : StateView} {s : BeaconState} (hcorr : StateCorr view s)
-    (hinv : SimpleStateInvariants s)
+    {anchors : Anchors} {validated : Bool} {nextForkEpoch : Epoch}
+    (hanchors : ∀ u, anchors.fulu u → SimpleStateInvariants u)
+    (hreach : ReachableState anchors validated nextForkEpoch s)
     (hproposer : (blockProposer s).toNat < s.validators.val.size)
-    (htime : TimeBound s) {cap : Nat} (hsupply : SupplyCap cap s)
-    (hroom : OperationsRoom cap limitP.val limitA.val limit.val)
+    (htime : TimeBound s) (hsupply : SupplyCap (2 ^ 58) s)
     (hkeepP : ∀ op ∈ poolP.val, keepP op = true →
       ProposerCoreOk view (slashingOf op).signed_header_1.message.proposer_index ∧
       ProposerSlashingWellFormed (toSpecP (slashingOf op)) ∧
@@ -153,7 +158,10 @@ theorem packed_slashings_and_exits_valid
       outP.val.length ≤ limitP.val ∧ outA.val.length ≤ limitA.val ∧
         out.val.length ≤ limit.val := by
   -- The state facts the three packing theorems take.
-  have hsize : s.balances.val.size = s.validators.val.size := hinv.registrySizes.1
+  have hsize : s.balances.val.size = s.validators.val.size :=
+    (hreach.simpleStateInvariants hanchors).registrySizes.1
+  have hroom : OperationsRoom (2 ^ 58) limitP.val limitA.val limit.val :=
+    (ConfigValid.operationsRoom (self := ‹_›)).mono hlimits.1 hlimits.2.1 hlimits.2.2
   have hexits := hroom.exits_of_timeBound htime
   have hrewards := hroom.rewards_of_supplyCap hsupply (blockProposer s).toNat
   have hcap := hsupply.effectiveBalance_le
@@ -233,19 +241,5 @@ theorem packed_slashings_and_exits_valid
     hlenP, hlenA, hlen⟩
 
 end
-
-/-- The room hypothesis of `packed_slashings_and_exits_valid` at the mainnet preset: with the
-mainnet block limits and a supply cap of `2 ^ 58` Gwei, `hroom` holds. -/
-theorem operationsRoom_mainnet_limits :
-    @OperationsRoom mainnet mainnetConfig (2 ^ 58) (16#usize : Aeneas.Std.Usize).val
-      (1#usize : Aeneas.Std.Usize).val (16#usize : Aeneas.Std.Usize).val := by
-  simpa using operationsRoom_mainnet
-
-/-- The room hypothesis of `packed_slashings_and_exits_valid` at the minimal preset, with the
-minimal block limits and a supply cap of `2 ^ 58` Gwei. -/
-theorem operationsRoom_minimal_limits :
-    @OperationsRoom minimal minimalConfig (2 ^ 58) (16#usize : Aeneas.Std.Usize).val
-      (1#usize : Aeneas.Std.Usize).val (16#usize : Aeneas.Std.Usize).val := by
-  simpa using operationsRoom_minimal
 
 end OperationPool
