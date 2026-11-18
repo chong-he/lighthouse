@@ -287,4 +287,12 @@ theorem exclusionSet_covers {initial excl : IndexSet} {proposerSlashings : Slice
   refine ⟨fun i hi => hkeep i ((hmem1 i).mpr (Or.inl hi)), fun slashing hsl => ?_, hpairs⟩
   exact hkeep _ ((hmem1 _).mpr (Or.inr ⟨slashing, hsl, rfl⟩))
 
+/-- The exclusion set is always built: neither `insert_*` function panics. -/
+theorem exclusionSet_ok (initial : IndexSet) (proposerSlashings : Slice ProposerSlashing)
+    (attesterIndices : List (Slice U64 × Slice U64)) :
+    ∃ excl, exclusionSet initial proposerSlashings attesterIndices = ok excl := by
+  obtain ⟨s1, hs1, _⟩ := insert_proposer_slashing_indices_eq initial proposerSlashings
+  obtain ⟨s', hs', _⟩ := insert_common_attesting_indices_foldlM attesterIndices s1
+  exact ⟨s', by simp [exclusionSet, hs1, hs']⟩
+
 end operation_pool

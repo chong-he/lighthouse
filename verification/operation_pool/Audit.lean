@@ -16,11 +16,16 @@ import StateProcessing
 -/
 
 #print axioms OperationPool.packed_slashings_and_exits_valid
+#print axioms OperationPool.operationsRoom_mainnet_limits
+#print axioms OperationPool.operationsRoom_minimal_limits
+#print axioms operation_pool.yields_slice
+#print axioms operation_pool.AttesterCover.model
+#print axioms operation_pool.exclusionSet_ok
+#print axioms EthCLSpecs.Proofs.Fulu.OperationsRoom.exits_of_timeBound
+#print axioms EthCLSpecs.Proofs.Fulu.OperationsRoom.rewards_of_supplyCap
 #print axioms OperationPool.packed_attester_slashings_valid_uniform
 #print axioms OperationPool.packed_attester_slashings_valid
 #print axioms operation_pool.maximum_cover_spec
-#print axioms OperationPool.packed_proposer_slashings_and_exits_valid
-#print axioms OperationPool.packed_exits_valid_after_packed_proposer_slashings
 #print axioms OperationPool.packed_proposer_slashings_valid_uniform
 #print axioms OperationPool.packed_proposer_slashings_valid
 #print axioms OperationPool.packed_exits_valid_after_slashings_uniform
@@ -30,7 +35,6 @@ import StateProcessing
 #print axioms operation_pool.exclusionSet_covers
 #print axioms OperationPool.Bridge.exitGates_of_coresOk
 #print axioms OperationPool.Bridge.proposerSlashingGates_of_coreOk
-#print axioms OperationPool.Bridge.balances_size_of_reachable
 #print axioms OperationPool.Bridge.isSlashableValidator_of_slashableOn
 #print axioms EthCLLib.Proofs.mem_qsort
 #print axioms EthCLSpecs.Proofs.Fulu.attesterSlashings_succeed
