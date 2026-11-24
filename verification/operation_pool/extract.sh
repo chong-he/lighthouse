@@ -15,13 +15,13 @@
 # One run rooted in `operation_pool` cannot cover both: Aeneas emits a function of another crate
 # only when an extracted body calls it, and nothing extracted calls the `verify_*` cores.
 #
-# Requires the Aeneas release for commit 5a392f4b (Lean v4.35.0), which bundles the `aeneas` and
+# Requires the Aeneas release for commit 2e3d4488 (Lean v4.36.0), which bundles the `aeneas` and
 # `charon` binaries and the Lean library. Point `AENEAS_DIR` at the unpacked release.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
-AENEAS_DIR="${AENEAS_DIR:-$HERE/../deps/aeneas-release-5a392f4}"
+AENEAS_DIR="${AENEAS_DIR:-$HERE/../deps/aeneas-release-2e3d448}"
 
 mkdir -p "$HERE/.lake"
 
@@ -45,7 +45,7 @@ run_charon() {
     shift 2
     (
         cd "$REPO/$crate_dir"
-        CARGO_TARGET_DIR="${CHARON_TARGET_DIR:-$REPO/target/charon-454586e9}" \
+        CARGO_TARGET_DIR="${CHARON_TARGET_DIR:-$REPO/target/charon-9e193f03}" \
         CARGO_RESOLVER_FEATURE_UNIFICATION=workspace \
             "$AENEAS_DIR/charon" cargo \
             --preset=aeneas \

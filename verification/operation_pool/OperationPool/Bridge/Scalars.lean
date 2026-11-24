@@ -1,12 +1,11 @@
 import Aeneas
-import EthCLSpecs.Fulu.Operations
 
 /-!
 # Scalars: extracted Rust `u64` to the spec's `UInt64`
 
-Aeneas models a Rust `u64` as `Aeneas.Std.U64`, a wrapper around `BitVec 64`. Etheorem's spec
-uses core `UInt64`. Both wrap the same bit vector, so the conversion is the identity on bits and
-on the natural-number value. Statements that cross the bridge are phrased over `Nat` values.
+Aeneas models a Rust `u64` as `Aeneas.Std.U64`, a wrapper around `BitVec 64`. EthLib's spec uses
+core `UInt64`. Both wrap the same bit vector, so the conversion is the identity on bits and on
+the natural-number value. Statements that cross the bridge are phrased over `Nat` values.
 -/
 
 namespace OperationPool.Bridge
