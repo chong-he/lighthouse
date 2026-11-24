@@ -8,3 +8,4 @@ public import EthLibOps.ProposerSlashings
 public import EthLibOps.AttesterSlashings
 public import EthLibOps.VoluntaryExits
 public import EthLibOps.Bounds
+public import EthLibOps.Operations

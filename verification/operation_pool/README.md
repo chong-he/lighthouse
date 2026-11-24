@@ -25,26 +25,45 @@ A run of the spec is a fold: `ops.toArray.foldlM (processX config checks) s = .o
 the fold EthLib's `processOperations` makes over each list of a block body before Gloas.
 
 **The main theorem.** `packed_slashings_and_exits_valid`
-(`OperationPool/PackedSlashingsAndExitsValid.lean`) follows the body of
-`get_slashings_and_exits` call by call:
+(`OperationPool/PackedSlashingsAndExitsValid.lean`):
 
-> `filter_limit_operations` returns the proposer slashings `outP`, and the spec processes them
-> in order from `s` and reaches `s₁`. `AttesterSlashingMaxCover::new` builds the covers
-> `covers`, with the proposers of `outP` as the set `to_be_slashed`. `maximum_cover` returns the
-> covers `outA`, and the spec processes their slashings in order from `s₁` and reaches `s₂`. The
-> two `insert_*` functions build the exclusion set `excl` from `outP` and `outA`.
-> `filter_limit_operations`, with a filter that rejects the validators of `excl`, returns the
-> exits `out`, and the spec processes them in order from `s₂`. No call panics, and each list is
-> within its limit.
+```lean
+theorem packed_slashings_and_exits_valid (hfork : IsFulu fork)
+    (hroom : OperationsRoom preset config fork (2 ^ 58) limits.proposerSlashings.val
+      limits.attesterSlashings.val limits.voluntaryExits.val)
+    (hstate : PackingState config checks hfork view s)
+    (hpools : PoolsValid config checks s pools) :
+    ∃ packed s', getSlashingsAndExits view pools limits = ok packed ∧
+      processSlashingsAndExits config checks s packed.toSpec = .ok s' ∧
+      packed.WithinLimits limits
+```
 
-No hypothesis of this theorem is a run of the spec. Every hypothesis about the state is about
-the packing state `s`.
+> `get_slashings_and_exits` does not panic. The spec processes what it returns, in order, from
+> the packing state `s`, and no step fails. Each returned list is within its limit.
 
-The extracted functions are generic over an iterator, over closures and over a `MaxCover`
-implementation. The main theorem states them on concrete instances, and proves the facts that
-the generic theorems take as hypotheses about the instances:
+Each side is one function:
 
-- A pool is a slice walked by Aeneas's slice iterator (`OperationPool/Concrete.lean`).
+- `getSlashingsAndExits` (`OperationPool/Pools.lean`) is the model of the Rust function. Its body
+  makes the calls of the Rust body, in order, on the extracted functions:
+  `filter_limit_operations` for the proposer slashings, `AttesterSlashingMaxCover::new` and
+  `maximum_cover` for the attester slashings, the two `insert_*` functions for the exclusion set,
+  and `filter_limit_operations` for the exits.
+- `processSlashingsAndExits` (`EthLibOps/Operations.lean`) folds `processProposerSlashing`, then
+  `processAttesterSlashing`, then `processVoluntaryExit` over the three lists.
+
+`packed_operations_valid` states the result on EthLib's `processOperations`: a block body that
+holds the packed slashings and exits and no other operation (`HoldsOnly`) passes
+`process_operations` on `s`. `processOperations_of_holdsOnly` is the link: on such a body, at
+Fulu, `processOperations` is `processSlashingsAndExits`.
+
+No premise of the theorem is a run of the spec. Every premise about the state is about the
+packing state `s`.
+
+The model runs the extracted functions on these instances:
+
+- A pool is a slice of `PoolEntry`, walked by Aeneas's slice iterator
+  (`OperationPool/Concrete.lean`). A `PoolEntry` is `SigVerifiedOp`: the operation, and
+  `stillValid`, which is `signature_is_still_valid` on the fork of the packing state.
 - A filter closure is a model that runs the extracted cores (`OperationPool/Closures.lean`).
   `proposerSlashingFilter` calls the core of `verify_proposer_slashing`. `voluntaryExitFilter`
   calls the two cores of `verify_exit`.
@@ -52,12 +71,15 @@ the generic theorems take as hypotheses about the instances:
   that `attesterCovers` builds: the model of `AttesterSlashingMaxCover::new`, which calls the
   extracted `Validator::is_slashable_at`, on each pool entry.
 
-A closure also makes checks that no extracted core holds. The models take those as functions:
-`stillValid` is `signature_is_still_valid`, and `headersOk` is the three checks of
-`verify_proposer_slashing` on the two headers. The theorem assumes what each one implies for the
-spec, and nothing else about the closures.
+The spec's form of a packed operation is defined, not assumed (`OperationPool/Bridge/ToSpec.lean`):
+`toSpecProposerSlashing` and `toSpecVoluntaryExit` convert field by field. `headersOk` is the
+three checks of `verify_proposer_slashing` on the two headers, and
+`proposerSlashingWellFormed_of_headersOk` proves that they are the spec's. An attester slashing of
+the pool (`PooledAttesterSlashing`) holds its two lists of attesting indices and its spec form,
+because Rust's `AttesterSlashing<E>` is not extracted.
 
-The three theorems below are the generic ones the main theorem joins.
+The three theorems below are generic over the iterator, the closures and the `MaxCover`
+implementation. The main theorem joins them.
 
 **Proposer slashings.** `packed_proposer_slashings_valid`
 (`OperationPool/PackedProposerSlashingsValid.lean`):
@@ -86,17 +108,24 @@ the block can slash every validator that a later one names. `maximum_cover_spec`
 > The spec's `process_voluntary_exit` succeeds on each packed exit in order, after the packed
 > slashings of the block.
 
-### The hypotheses about the state
+### The premises
 
-| Hypothesis | Meaning | Status |
+| Premise | Meaning | Status |
 |---|---|---|
 | `hfork` | `IsFulu fork`: the fork of `s` is Fulu, or one of the forks that change the blob parameters alone | Assumed |
-| `hcorr` | The Lighthouse state corresponds to `s` | Trusted, see below |
-| `hrun`, `hgenesis` | A run of slots and blocks (EthLib's `Run`) reaches `s` from a genesis state (`Genesis`). The proof uses one consequence: `balances` has the registry's length | Assumed. EthLib's `reachable_balancesMatch` gives the consequence |
-| `hproposer`, `hproposerIn` | `p` is the proposer of the slot, and is a validator in the registry | Assumed. `process_block_header` checks it earlier in the block |
-| `htime` | `TimeBound s`: the slot and the earliest exit epoch are below `2^63` | Assumed |
-| `hsupply` | `SupplyCap (2^58) s`: the balances add up to `2^58` Gwei at most, and so do the effective balances. The slashed balance recorded for the current epoch is `2^58` Gwei at most | Assumed |
-| `hconfig` | `OperationsRoom`: within the two bounds above, a block with as many slashings and exits as the preset allows has room | Proved for mainnet and minimal at Fulu: `operationsRoom_mainnet`, `operationsRoom_minimal` |
+| `hroom` | `OperationsRoom`: on a state within the two bounds below, a block with as many slashings and exits as the three limits allow has room | Proved for the limits of mainnet and minimal at Fulu (`operationsRoom_mainnet`, `operationsRoom_minimal`), and for smaller limits by `OperationsRoom.mono` |
+| `hstate` | `PackingState`: the five facts about `s` below | |
+| `hpools` | `PoolsValid`: the five facts about the pools, listed under "What is trusted" | Trusted |
+
+The fields of `PackingState`:
+
+| Field | Meaning | Status |
+|---|---|---|
+| `corr` | The Lighthouse state corresponds to `s` | Trusted, see below |
+| `reachable` | A run of slots and blocks (EthLib's `Run`) reaches `s` from a genesis state (`Genesis`). The proof uses one consequence: `balances` has the registry's length | Assumed. EthLib's `reachable_balancesMatch` gives the consequence |
+| `proposer` | The proposer of the slot is a validator in the registry | Assumed. `process_block_header` checks it earlier in the block |
+| `time` | `TimeBound s`: the slot and the earliest exit epoch are below `2^63` | Assumed |
+| `supply` | `SupplyCap (2^58) s`: the balances add up to `2^58` Gwei at most, and so do the effective balances. The slashed balance recorded for the current epoch is `2^58` Gwei at most | Assumed |
 
 `TimeBound`, `SupplyCap` and `OperationsRoom` are defined in `EthLibOps/Bounds.lean`. They
 replace the room formulas of the generic theorems, which cover the arithmetic of
@@ -112,8 +141,7 @@ replace the room formulas of the generic theorems, which cover the arithmetic of
 - `OperationsRoom` reads constants alone. It counts one exit and one whistleblower reward for
   each proposer slashing and for each validator an attester slashing can name
   (`MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT`, `131072` on mainnet), and one exit
-  for each voluntary exit, at the block limits of the preset. `hlimits` says that the three
-  limits the Rust passes are at most those.
+  for each voluntary exit. `hroom` states it at the three limits the Rust passes.
 - EthLib anchors reachability at a Phase 0 genesis state, and a run crosses the fork upgrades.
   `Run.invariant` holds from any first state with EthLib's `Invariant`, so a statement from
   another anchor state is a small change.
@@ -137,6 +165,9 @@ replace the room formulas of the generic theorems, which cover the arithmetic of
 | `AttesterCover.model` | `OperationPool/Concrete.lean` | The model of `AttesterSlashingMaxCover` satisfies `MaxCoverModel` |
 | `exclusionSet_ok` | `OperationPool/ExclusionSet.lean` | The two `insert_*` functions do not panic |
 | `isSlashableValidator_of_slashableOn` | `OperationPool/Bridge/StateCorr.lean` | A validator `Validator::is_slashable_at` accepts is slashable by the spec's `is_slashable_validator` |
+| `packed_operations_valid` | `OperationPool/PackedSlashingsAndExitsValid.lean` | A block body that holds the packed slashings and exits and no other operation passes `processOperations` |
+| `proposerSlashingWellFormed_of_headersOk` | `OperationPool/Bridge/ToSpec.lean` | A proposer slashing whose headers pass the three checks of `verify_proposer_slashing` is well formed for the spec |
+| `yields_list` | `OperationPool/Pools.lean` | The list iterator yields the entries of the list, in order |
 | `packed_exits_valid` | `OperationPool/PackedExitsValid.lean` | The packed exits succeed from any state with the slash frame of the packing state |
 | `packed_exits_valid_direct` | `OperationPool/PackedExitsValid.lean` | The packed exits succeed from the packing state itself |
 
@@ -163,6 +194,7 @@ succeeds from its checks. `EthLibOps` proves those.
 | `processVoluntaryExit_ok_of_frame` | `VoluntaryExits.lean` | An exit that passes `ExitGates` and `ExitSigned` cannot fail when the exit queue has room |
 | `voluntaryExits_foldlM_ok` | `VoluntaryExits.lean` | Exits that name pairwise distinct validators and pass the gates succeed in order, from any state with the slash frame of the state they pass the gates on |
 | `StateRoom.of_bounds`, `OperationsRoom.exits_of_timeBound`, `OperationsRoom.rewards_of_supplyCap` | `Bounds.lean` | Within `TimeBound` and `SupplyCap`, the state has the room a slashing reads, and the exit queue and each balance have room for the operations of a block |
+| `processOperations_of_holdsOnly` | `Operations.lean` | At Fulu, `processOperations` on a block body that holds the slashings and exits `ops` and no other operation is `processSlashingsAndExits` on `ops` |
 | `operationsRoom_mainnet`, `operationsRoom_minimal` | `Bounds.lean` | `OperationsRoom` holds at Fulu for the block limits of each preset, at a cap of `2^58` Gwei |
 | `balancesMatch_of_reachable` | `Bounds.lean` | A state that a run reaches from a genesis state has one balance for each validator. This is EthLib's `reachable_balancesMatch` |
 
@@ -264,29 +296,30 @@ Not proved, and to be checked by inspection:
 |---|---|
 | Charon, Aeneas and the Lean kernel | Translation and checking |
 | The external models: `HashSet` as a list of distinct values (`with_capacity`, `insert`, `contains`), `metrics::set_max_cover_non_zero_items` as a call that returns, and the opaque external types and hashing functions | `OperationPool/TypesExternal.lean`, `OperationPool/FunsExternal.lean`, `StateProcessing/TypesExternal.lean`, `ExternalTypes.lean` |
-| The models of `OperationPool/Concrete.lean` stand for the Rust values. A pool's iterator yields each pool entry once, as the slice iterator does on a slice of the entries. A mapping closure clones the operation of the entry and does not panic | The form of the main theorem: `sliceIntoIter`, `pureFn`, `cloneId` |
+| The models of `OperationPool/Concrete.lean` stand for the Rust values. A pool's iterator yields each pool entry once, as the slice iterator does on a slice of the entries. A mapping closure clones the operation of the entry and does not panic | `getSlashingsAndExits`: `sliceIntoIter`, `pureFn`, `cloneId` |
 | The models of `OperationPool/Closures.lean` compute what the Rust closures compute. Each definition quotes the Rust it models. The two filters are `proposerSlashingFilter` and `voluntaryExitFilter`. `attesterCovers` is what the `flat_map` iterator of `get_attester_slashings` yields, and `attesterCoverNew` is `AttesterSlashingMaxCover::new` with `get_slashable_indices_modular` written out. `proposerIndexSet` is the set `to_be_slashed` that `new` reads | The form of the main theorem |
 | The reads of the models are the reads of the Rust. `verify_proposer_slashing<E>`, `verify_exit<E>`, `get_slashable_indices_modular` and `get_effective_balance` read the validator at an index with `state.validators().get(index)`, and the models read `StateView.validatorAt`. The epoch is `state.current_epoch()`, the two constants come from the chain spec, and the pending balance is `get_pending_balance_to_withdraw(index).ok()` | `StateView` |
 | `AttesterCover` stands for `AttesterSlashingMaxCover`: the slashing, and `effective_balances` as a list of key and value. Its methods are those of the Rust: `score` is the sum of the values, which wraps as in a release build; `update_covering_set` is `retain` on the keys the picked cover does not have; `clone` returns its argument | `AttesterCover`, `AttesterCover.maxCover` |
-| The body of `get_slashings_and_exits` makes the calls of the conclusion, with these arguments: `to_be_slashed` holds the proposers of the packed proposer slashings when the covers are built, the exclusion set is built from the packed slashings, and the exit filter reads that set | The form of the conclusion; `initial`, `indicesA` |
-| The three limits are the preset's: `E::MaxProposerSlashings`, `E::max_attester_slashings_electra()` and `E::MaxVoluntaryExits` | `hlimits` |
-| An attester slashing of the pool with a signature that is still valid passes the spec's checks before the walk, on the packing state: the two attestations are slashable, and each is a valid indexed attestation (indices not empty, sorted, in the registry, aggregate signature valid). `SigVerifiedOp` is built only after `verify_attester_slashing`, and `signature_is_still_valid` checks the fork versions. Lighthouse does not check again at packing that every attesting index is in the registry of the packing state: `new` looks up the indices that both attestations name, and no other | `hchecksA` (`AttesterSlashingChecks`) |
-| `get_attester_slashings` returns, for each picked cover, `convert_to_object(cover.intermediate())` | `toSpecA`, the conclusion |
-| The exit pool's `HashMap` is keyed by `message.validator_index`, and the proposer-slashing pool's by `proposer_index()` (`insert_voluntary_exit`, `insert_proposer_slashing`, `persistence.rs`), so the entries name pairwise distinct validators | `hkeys`, `hkeysP` |
-| A proposer slashing with headers that pass the three checks of `verify_proposer_slashing<E>` is well formed for the spec: the two headers have the same slot and the same proposer index, and differ. Lighthouse compares the headers field by field, and so does EthLib | `hheadersP` (`headersOk`, `ProposerSlashingWellFormed`) |
-| The Lighthouse state corresponds to the spec state: same validator epochs and slashed flags, same current epoch, and a pending balance that was computed without overflow | `hcorr` (`StateCorr`) |
-| A proposer slashing or an exit of a pool with a signature that is still valid has valid signatures for the packing state. `SigVerifiedOp` is built only after a signature check, and a validator's public key never changes. For an exit, the Fulu domain is fixed at the Capella fork version. For a proposer slashing, `signature_is_still_valid` checks that the fork version at the header's epoch is the one the signature was checked under | `hsignedE` (`ExitSigned`), `hsignedP` (`ProposerSlashingSigned`) |
-| The spec's forms of the packed operations carry the same indices and epochs as the Rust values | `hmessage`, `hindexP`, `hindicesA` |
+| `getSlashingsAndExits` makes the calls of the Rust body, with the same arguments. `to_be_slashed` holds the proposers of the packed proposer slashings when the covers are built. `get_attester_slashings` extends it with the keys of each picked cover (`extendIndexSet`, a model of `HashSet::extend`) and returns `convert_to_object(cover.intermediate())` for each picked cover. The exclusion set is built from the packed slashings, and the exit filter reads that set. The `flat_map` iterator of the covers is a list iterator (`listIntoIter`), and the label of the metric is an uninterpreted constant | `getSlashingsAndExits` (`OperationPool/Pools.lean`) |
+| The three limits are the preset's: `E::MaxProposerSlashings`, `E::max_attester_slashings_electra()` and `E::MaxVoluntaryExits` | `limits`, `hroom` |
+| An attester slashing of the pool with a signature that is still valid passes the spec's checks before the walk, on the packing state: the two attestations are slashable, and each is a valid indexed attestation (indices not empty, sorted, in the registry, aggregate signature valid). `SigVerifiedOp` is built only after `verify_attester_slashing`, and `signature_is_still_valid` checks the fork versions. Lighthouse does not check again at packing that every attesting index is in the registry of the packing state: `new` looks up the indices that both attestations name, and no other | `PoolsValid.attesterChecks` (`AttesterSlashingChecks`) |
+| A `PoolEntry` stands for `SigVerifiedOp<T, E>`: `inner` is `as_inner()`, and `stillValid` is `signature_is_still_valid(&state.fork())` on the packing state. `RSignedVoluntaryExit` is written by hand from the Rust struct, which no extracted function mentions. `Slot` is the `u64` it wraps | `PoolEntry`, `RSignedVoluntaryExit`, `OperationPool/TypesExternal.lean` |
+| The exit pool's `HashMap` is keyed by `message.validator_index`, and the proposer-slashing pool's by `proposer_index()` (`insert_voluntary_exit`, `insert_proposer_slashing`, `persistence.rs`), so the entries name pairwise distinct validators | `PoolsValid.exitsDistinct`, `PoolsValid.proposersDistinct` |
+| `headersOk` is the three checks of `verify_proposer_slashing<E>` on the two headers: same slot, same proposer index, and `header_1 != header_2`, which compares field by field. `toSpecProposerSlashing` and `toSpecVoluntaryExit` describe the spec's form of a Rust value: the same integers and the same 32-byte roots. A signature is an opaque Rust type, and `signatureBytes` is an uninterpreted function for its 96 bytes | `OperationPool/Bridge/ToSpec.lean` |
+| The Lighthouse state corresponds to the spec state: same validator epochs and slashed flags, same current epoch, and a pending balance that was computed without overflow | `PackingState.corr` (`StateCorr`) |
+| A proposer slashing or an exit of a pool with a signature that is still valid has valid signatures for the packing state. `SigVerifiedOp` is built only after a signature check, and a validator's public key never changes. For an exit, the Fulu domain is fixed at the Capella fork version. For a proposer slashing, `signature_is_still_valid` checks that the fork version at the header's epoch is the one the signature was checked under | `PoolsValid.exitSigned` (`ExitSigned`), `PoolsValid.proposerSigned` (`ProposerSlashingSigned`) |
+| The spec's form of an attester slashing of the pool names the attesting indices that the Rust reads. Rust's `AttesterSlashing<E>` is not extracted, so the model type holds both and the two equations | `PooledAttesterSlashing` (`indices1`, `indices2`) |
 | EthLib's model is the consensus spec. It is checked against the consensus spec tests. The signature checks are the `SignatureChecks` the theorem is stated for: any pair of check functions, of which `SignatureChecks.bls` is the real one | The spec-side theorems |
 
 Assumptions about the state, by design:
 
 - The packing state is a Fulu state that a run of the spec reaches from a genesis state
-  (`hfork`, `hrun`, `hgenesis`). This is where the proof assumes that Lighthouse's state
+  (`hfork`, `PackingState.reachable`). This is where the proof assumes that Lighthouse's state
   transition is the spec's.
-- The proposer of the slot is in the registry (`hproposer`, `hproposerIn`). The proof does not
+- The proposer of the slot is in the registry (`PackingState.proposer`). The proof does not
   derive it from the run.
-- The state is within the time bound and the supply cap (`htime`, `hsupply`).
+- The state is within the time bound and the supply cap (`PackingState.time`,
+  `PackingState.supply`).
 
 ## Scope
 
@@ -312,10 +345,11 @@ Assumptions about the state, by design:
 - **The room EthLib asks for.** `slashValidator_ok_of_room` (EthLib) asks that the proposer's
   balance has room for the whole effective balance of the slashed validator, where the reward
   is a fraction of it. `OperationsRoom` carries that extra `2^58` Gwei.
-- **The spec's loops.** Each fold is stated as `ops.toArray.foldlM (processX config checks)`.
-  Before Gloas, EthLib's `processOperations` is a sequence of such folds over the lists of the
-  block body, with the deposits and the attestations between the slashings and the exits. The
-  theorem does not state that sequence.
+- **The spec's loops.** `processSlashingsAndExits` is three folds, the ones EthLib's
+  `processOperations` makes over those lists of a block body before Gloas.
+  `packed_operations_valid` covers a body with no other operation. A real block also holds
+  attestations, which run between the slashings and the exits. They are not covered:
+  `SlashFrame` is the interface for adding them.
 - **Completeness.** The theorems say every packed operation is valid. They do not say that
   every valid operation is packed, or that the max cover picks a best set of slashings.
 
@@ -332,6 +366,7 @@ EthLibOps/                    proofs on EthLib's spec alone; no Rust
   AttesterSlashings.lean      the attester slashings of a block succeed
   VoluntaryExits.lean         the voluntary exits of a block succeed
   Bounds.lean                 `TimeBound`, `SupplyCap`, `OperationsRoom`; mainnet and minimal
+  Operations.lean             `processSlashingsAndExits`, and its link to `processOperations`
 OperationPool/
   Types.lean, Funs.lean       generated from `operation_pool`
   TypesExternal.lean          hand-written models of external types (trusted)
@@ -344,10 +379,12 @@ OperationPool/
                               on the extracted cores
   Bridge/Scalars.lean         Rust `u64` to the spec's `UInt64`
   Bridge/StateCorr.lean       the state correspondence; Rust checks to spec gates
+  Bridge/ToSpec.lean          the spec's form of a packed operation; the header checks
+  Pools.lean                  the pools, and the model of `get_slashings_and_exits`
   PackedProposerSlashingsValid.lean   the proposer slashings
   PackedAttesterSlashingsValid.lean   the attester slashings, after the proposer slashings
   PackedExitsValid.lean               the exits, after the slashings
-  PackedSlashingsAndExitsValid.lean   main theorem: the three kinds, in order
+  PackedSlashingsAndExitsValid.lean   main theorem, and the same on `processOperations`
 StateProcessing/
   Types.lean, Funs.lean       generated from `state_processing`
   TypesExternal.lean          hand-written opaque external types (trusted)
@@ -384,6 +421,9 @@ lake build Audit   # prints the axioms each main theorem depends on
 The first build needs the Mathlib cache: `lake exe cache get`. It then builds the part of EthLib
 that the proofs import, about 1900 modules, in a few minutes. To check one file,
 `lake env lean OperationPool/FilterLimit.lean` takes a few seconds once its imports are built.
+
+Every library sets `autoImplicit = false`, so a name that does not resolve in a statement is an
+error and not a new variable.
 
 The files of `EthLibOps` are Lean modules, as EthLib's are, so that they see what EthLib
 exports and nothing else. The files of `OperationPool` import Aeneas, which is not a module

@@ -1,4 +1,4 @@
-import OperationPool.Closures
+import OperationPool.Pools
 import OperationPool.PackedProposerSlashingsValid
 import OperationPool.PackedAttesterSlashingsValid
 import OperationPool.PackedExitsValid
@@ -10,37 +10,36 @@ import OperationPool.PackedExitsValid
 and the voluntary exits of one block. `process_operations` applies them in that order, and each
 operation changes the state the next one reads.
 
-`packed_slashings_and_exits_valid` is the main theorem of this project. It follows the body of
-`get_slashings_and_exits` call by call, and states that the spec processes what each call
-returns: the proposer slashings from the packing state `s`, then the attester slashings, then
-the voluntary exits. No step fails.
+`packed_slashings_and_exits_valid` is the main theorem of this project:
 
-The spec is EthLib's. Before Gloas its `processOperations` folds `processProposerSlashing`,
-`processAttesterSlashing` and `processVoluntaryExit` over the operations of a block body, and
-the conclusion states those three folds.
+> `get_slashings_and_exits` does not panic. The spec processes what it returns, in order, from
+> the packing state, and no step fails. Each returned list is within its limit.
 
-## The form of the statement
+Both sides are one function:
 
-The three packing theorems are generic over the iterator, the closures and the `MaxCover`
-implementation, and take a hypothesis for each. This theorem states the extracted functions on
-concrete instances, for which those hypotheses are proved:
+* `getSlashingsAndExits` (`OperationPool/Pools.lean`) is the model of the Rust function. It makes
+  the calls of the Rust body on the extracted `filter_limit_operations`, `maximum_cover` and
+  `insert_*` functions.
+* `processSlashingsAndExits` (`EthLibOps/Operations.lean`) folds EthLib's
+  `processProposerSlashing`, `processAttesterSlashing` and `processVoluntaryExit` over the three
+  lists, as `process_operations` does.
 
-* a pool is a slice (`OperationPool/Concrete.lean`);
-* a filter closure is its model on the extracted cores of the `verify_*` functions
-  (`proposerSlashingFilter` and `voluntaryExitFilter` of `OperationPool/Closures.lean`);
-* a cover is an `AttesterCover`, and the covers are the ones that the model of
-  `AttesterSlashingMaxCover::new` builds (`attesterCovers`).
+`packed_operations_valid` states the same result on EthLib's `processOperations`: a block body
+that holds the packed operations and no other operation passes `process_operations`.
 
-The packing state `s` is a state of the spec at Fulu that a run of slots and blocks reaches from
-a genesis state, within `TimeBound` and `SupplyCap (2 ^ 58)`. Those two bounds keep the
-arithmetic away from `2 ^ 64`. The constants leave room within them for a block with as many
-operations as the preset allows (`OperationsRoom`), and the three limits are at most the
-preset's. `operationsRoom_mainnet` and `operationsRoom_minimal` prove that room for the two
-presets.
+The premises are four:
 
-The hypotheses that are not proved from extracted code are the trusted base. `README.md` lists
-them.
+* `hfork`: the fork of the spec state is Fulu.
+* `hroom`: `OperationsRoom`, a fact about constants. `operationsRoom_mainnet` and
+  `operationsRoom_minimal` prove it for the limits of the two presets, and `OperationsRoom.mono`
+  for smaller limits.
+* `hstate`: `PackingState`, what the theorem assumes of the packing state.
+* `hpools`: `PoolsValid`, what the theorem assumes of the three pools.
+
+The fields of `PackingState` and `PoolsValid` are the trusted base. `README.md` lists them.
 -/
+
+set_option autoImplicit false
 
 namespace OperationPool
 
@@ -52,8 +51,6 @@ open operation_pool (sliceIntoIter pureFn cloneId AttesterCover)
 section
 
 variable {preset : Preset} {fork : Base.Fork} {config : Config} {checks : SignatureChecks}
-
-variable {OpP OpA Im Op X : Type}
 
 /-- A Rust index is one of the indices an attester slashing walks exactly when both Rust lists
 of attesting indices hold it. `indices` holds the two Rust lists of the slashing `asl`. -/
@@ -70,126 +67,67 @@ theorem mem_slashingIndices_of_indices {asl : AttesterSlashing preset fork}
     fun hu => List.mem_map.mpr ⟨u, hu, rfl⟩⟩
   rw [mem_slashingIndices, h.1, h.2, hmap, hmap]
 
-/-- The packed proposer slashings, attester slashings and voluntary exits of a block are valid:
-the spec processes them in that order from the packing state `s`, and no step fails.
+/-- What the theorem assumes of the packing state `s`, the spec state that corresponds to the
+Lighthouse state the op pool packs on. -/
+structure PackingState (config : Config) (checks : SignatureChecks) (hfork : IsFulu fork)
+    (view : StateView) (s : BeaconState preset fork) : Prop where
+  /-- The state Lighthouse reads corresponds to `s`. -/
+  corr : StateCorr config hfork.electra view s
+  /-- A run of slots and blocks reaches `s` from a genesis state. -/
+  reachable : ∃ g, Genesis config checks g ∧ Nonempty (Run config checks g ⟨fork, s⟩)
+  /-- The proposer of the slot is a validator of the registry. -/
+  proposer : ∃ p, getBeaconProposerIndex s = .ok p ∧ p.toNat < s.validators.data.size
+  /-- The slot and the earliest exit epoch are below `2 ^ 63`. -/
+  time : TimeBound hfork.electra s
+  /-- The state holds `2 ^ 58` Gwei at most. -/
+  supply : SupplyCap (2 ^ 58) s
 
-The data:
+/-- What the theorem assumes of the three pools, on the packing state `s`. -/
+structure PoolsValid (config : Config) (checks : SignatureChecks) (s : BeaconState preset fork)
+    (pools : Pools preset fork) : Prop where
+  /-- The pool holds one proposer slashing per proposer. -/
+  proposersDistinct : pools.proposerSlashings.val.Pairwise fun a b =>
+    a.inner.signed_header_1.message.proposer_index ≠
+      b.inner.signed_header_1.message.proposer_index
+  /-- The pool holds one voluntary exit per validator. -/
+  exitsDistinct : pools.voluntaryExits.val.Pairwise fun a b =>
+    a.inner.message.validator_index ≠ b.inner.message.validator_index
+  /-- A proposer slashing with a signature that is still valid is signed on `s`. -/
+  proposerSigned : ∀ entry ∈ pools.proposerSlashings.val, entry.stillValid = true →
+    ProposerSlashingSigned config checks s (toSpecProposerSlashing entry.inner)
+  /-- An attester slashing with a signature that is still valid passes the checks of
+  `process_attester_slashing` that run before the walk, on `s`. -/
+  attesterChecks : ∀ entry ∈ pools.attesterSlashings.val, entry.stillValid = true →
+    AttesterSlashingChecks config checks s entry.inner.spec
+  /-- A voluntary exit with a signature that is still valid is signed on `s`. -/
+  exitSigned : ∀ entry ∈ pools.voluntaryExits.val, entry.stillValid = true →
+    ExitSigned config checks s (toSpecVoluntaryExit entry.inner)
 
-* `poolP`, `slashingOf`, `limitP`: the proposer-slashing pool, the mapping closure, and
-  `MAX_PROPOSER_SLASHINGS`.
-* `poolA`, `slashingOfA`, `limitA`: the attester-slashing pool, the slashing of an entry, and
-  `MAX_ATTESTER_SLASHINGS_ELECTRA`.
-* `pool`, `exitOf`, `limit`: the exit pool, the mapping closure, and `MAX_VOLUNTARY_EXITS`.
-* `stillValidP`, `stillValidA`, `stillValidE`: `signature_is_still_valid` on an entry of each
-  pool. `headersOk` is the three checks of `verify_proposer_slashing` on the two headers.
-* `initial`: the set `to_be_slashed` when the two `insert_*` functions extend it.
-* `toSpecP`, `toSpecA`, `toSpec`: the spec's form of each operation. `indicesA` and `message`
-  read the Rust attesting indices and the Rust exit.
+variable {limits : Limits} {view : StateView} {s : BeaconState preset fork}
+  {pools : Pools preset fork}
 
-The hypotheses:
-
-* `hfork`: the fork of the spec state is Fulu.
-* `hindexP`, `hindicesA`, `hmessage`: the spec's forms carry the Rust indices and epochs.
-* `hkeysP`, `hkeys`: a pool holds one operation per validator.
-* `hconfig`, `hlimits`: the constants leave room for the largest block of the preset, on a state
-  that holds `2 ^ 58` Gwei at most, and the three limits are at most the preset's block limits.
-* `hcorr`: the state Lighthouse reads corresponds to the spec state `s`.
-* `hrun`, `hgenesis`: a run of slots and blocks reaches `s` from the genesis state `g`.
-* `hproposer`, `hproposerIn`: `p` is the proposer of the slot of `s`, and is in the registry.
-* `htime`, `hsupply`: `s` is within the time bound and a supply cap of `2 ^ 58` Gwei.
-* `hheadersP`: a proposer slashing with headers that pass the three checks is well formed.
-* `hsignedP`, `hsignedE`: a proposer slashing or an exit with a signature that is still valid
-  is signed on `s`.
-* `hchecksA`: an attester slashing with a signature that is still valid passes the checks of
-  `process_attester_slashing` that run before the walk.
-
-The conclusion follows `get_slashings_and_exits`. No call panics. `outP`, `outA` and `out` are
-what the three packing calls return, within their limits. `covers` holds the covers that the
-iterator of `get_attester_slashings` yields, built with the proposers of `outP` as the set
-`to_be_slashed`. `excl` is the exclusion set built from `outP` and `outA`. The spec processes
-`outP` from `s` and reaches `s₁`, the slashings of `outA` from `s₁` and reaches `s₂`, and `out`
-from `s₂`. -/
+/-- The proposer slashings, attester slashings and voluntary exits that
+`get_slashings_and_exits` packs are valid: the call does not panic, the spec processes what it
+returns, in that order, from the packing state `s`, and each returned list is within its
+limit. -/
 theorem packed_slashings_and_exits_valid (hfork : IsFulu fork)
-    (poolP : Aeneas.Std.Slice OpP) (stillValidP : OpP → Bool)
-    (headersOk : RProposerSlashing → Bool) (slashingOf : OpP → RProposerSlashing)
-    (limitP : Aeneas.Std.Usize)
-    (poolA : Aeneas.Std.Slice OpA) (stillValidA : OpA → Bool) (slashingOfA : OpA → Im)
-    (limitA : Aeneas.Std.Usize) (label : Aeneas.Std.Str)
-    (pool : Aeneas.Std.Slice Op) (stillValidE : Op → Bool) (exitOf : Op → X)
-    (limit : Aeneas.Std.Usize)
-    (initial : operation_pool.IndexSet)
-    (toSpecP : RProposerSlashing → ProposerSlashing)
-    (toSpecA : Im → AttesterSlashing preset fork)
-    (indicesA : Im → Aeneas.Std.Slice Aeneas.Std.U64 × Aeneas.Std.Slice Aeneas.Std.U64)
-    (message : X → RVoluntaryExit) (toSpec : X → SignedVoluntaryExit)
-    (hindexP : ∀ r, slashedIndex (toSpecP r) =
-      u64ToSpec r.signed_header_1.message.proposer_index)
-    (hindicesA : ∀ i,
-      (toSpecA i).attestation1.attestingIndices.data.toList =
-        (indicesA i).1.val.map u64ToSpec ∧
-      (toSpecA i).attestation2.attestingIndices.data.toList =
-        (indicesA i).2.val.map u64ToSpec)
-    (hmessage : ∀ x,
-      (toSpec x).message.validatorIndex = u64ToSpec (message x).validator_index ∧
-      (toSpec x).message.epoch = u64ToSpec (message x).epoch)
-    (hkeysP : poolP.val.Pairwise fun a b =>
-      (slashingOf a).signed_header_1.message.proposer_index ≠
-        (slashingOf b).signed_header_1.message.proposer_index)
-    (hkeys : pool.val.Pairwise fun a b =>
-      (message (exitOf a)).validator_index ≠ (message (exitOf b)).validator_index)
-    (hconfig : OperationsRoom preset config fork (2 ^ 58) preset.MAX_PROPOSER_SLASHINGS.toNat
-      (parameters preset fork).MAX_ATTESTER_SLASHINGS.toNat preset.MAX_VOLUNTARY_EXITS.toNat)
-    (hlimits : limitP.val ≤ preset.MAX_PROPOSER_SLASHINGS.toNat ∧
-      limitA.val ≤ (parameters preset fork).MAX_ATTESTER_SLASHINGS.toNat ∧
-      limit.val ≤ preset.MAX_VOLUNTARY_EXITS.toNat)
-    {view : StateView} {s : BeaconState preset fork}
-    (hcorr : StateCorr config hfork.electra view s)
-    {g : ForkedBeaconState preset} (hrun : Run config checks g ⟨fork, s⟩)
-    (hgenesis : Genesis config checks g)
-    {p : ValidatorIndex} (hproposer : getBeaconProposerIndex s = .ok p)
-    (hproposerIn : p.toNat < s.validators.data.size)
-    (htime : TimeBound hfork.electra s) (hsupply : SupplyCap (2 ^ 58) s)
-    (hheadersP : ∀ op ∈ poolP.val, headersOk (slashingOf op) = true →
-      ProposerSlashingWellFormed (toSpecP (slashingOf op)))
-    (hsignedP : ∀ op ∈ poolP.val, stillValidP op = true →
-      ProposerSlashingSigned config checks s (toSpecP (slashingOf op)))
-    (hchecksA : ∀ op ∈ poolA.val, stillValidA op = true →
-      AttesterSlashingChecks config checks s (toSpecA (slashingOfA op)))
-    (hsignedE : ∀ op ∈ pool.val, stillValidE op = true →
-      ExitSigned config checks s (toSpec (exitOf op))) :
-    ∃ (outP : Aeneas.Std.alloc.vec.Vec RProposerSlashing) (s₁ : BeaconState preset fork)
-      (covers : Aeneas.Std.Slice (AttesterCover Im))
-      (outA : Aeneas.Std.alloc.vec.Vec (AttesterCover Im)) (s₂ : BeaconState preset fork)
-      (excl : operation_pool.IndexSet) (out : Aeneas.Std.alloc.vec.Vec X)
-      (s₃ : BeaconState preset fork),
-      operation_pool.filter_limit_operations (sliceIntoIter OpP)
-        (Aeneas.Std.BuiltinFn OpP Bool) (Aeneas.Std.BuiltinFn OpP RProposerSlashing)
-        (cloneId OpP) poolP (proposerSlashingFilter view stillValidP headersOk slashingOf)
-        (pureFn slashingOf) limitP = Aeneas.Std.Result.ok outP ∧
-      (outP.val.map toSpecP).toArray.foldlM (processProposerSlashing config checks) s =
-        .ok s₁ ∧
-      attesterCovers view stillValidA slashingOfA indicesA (proposerIndexSet outP.val)
-        poolA.val = Aeneas.Std.Result.ok covers.val ∧
-      operation_pool.max_cover.maximum_cover (sliceIntoIter (AttesterCover Im))
-        (AttesterCover.maxCover Im) covers limitA label = Aeneas.Std.Result.ok outA ∧
-      (outA.val.map fun c => toSpecA c.slashing).toArray.foldlM
-        (processAttesterSlashing config checks) s₁ = .ok s₂ ∧
-      operation_pool.exclusionSet initial (Aeneas.Std.alloc.vec.Vec.deref outP)
-        (outA.val.map fun c => indicesA c.slashing) = Aeneas.Std.Result.ok excl ∧
-      operation_pool.filter_limit_operations (sliceIntoIter Op)
-        (Aeneas.Std.BuiltinFn Op Bool) (Aeneas.Std.BuiltinFn Op X) (cloneId Op) pool
-        (voluntaryExitFilter view excl stillValidE fun op => message (exitOf op))
-        (pureFn exitOf) limit = Aeneas.Std.Result.ok out ∧
-      (out.val.map toSpec).toArray.foldlM (processVoluntaryExit config checks) s₂ = .ok s₃ ∧
-      outP.val.length ≤ limitP.val ∧ outA.val.length ≤ limitA.val ∧
-        out.val.length ≤ limit.val := by
+    (hroom : OperationsRoom preset config fork (2 ^ 58) limits.proposerSlashings.val
+      limits.attesterSlashings.val limits.voluntaryExits.val)
+    (hstate : PackingState config checks hfork view s)
+    (hpools : PoolsValid config checks s pools) :
+    ∃ packed s', getSlashingsAndExits view pools limits = Aeneas.Std.Result.ok packed ∧
+      processSlashingsAndExits config checks s packed.toSpec = .ok s' ∧
+      packed.WithinLimits limits := by
   -- The state facts the three packing theorems take.
-  have hchurn := hconfig.churn
-  have hroom := hconfig.mono hlimits.1 hlimits.2.1 hlimits.2.2
-  have hstate : StateRoom config (2 ^ 58) p s := StateRoom.of_bounds hconfig
-    (balancesMatch_of_reachable hrun hgenesis) hproposer hproposerIn htime hsupply
-  have hexits := hroom.exits_of_timeBound htime
-  have hrewards := fun b (hb : getBalance s p = .ok b) => hroom.rewards_of_supplyCap hsupply hb
+  obtain ⟨g, hgenesis, ⟨hrun⟩⟩ := hstate.reachable
+  obtain ⟨p, hproposer, hproposerIn⟩ := hstate.proposer
+  have hcorr := hstate.corr
+  have hchurn := hroom.churn
+  have hstateRoom : StateRoom config (2 ^ 58) p s := StateRoom.of_bounds hroom
+    (balancesMatch_of_reachable hrun hgenesis) hproposer hproposerIn hstate.time hstate.supply
+  have hexits := hroom.exits_of_timeBound hstate.time
+  have hrewards := fun b (hb : getBalance s p = .ok b) =>
+    hroom.rewards_of_supplyCap hstate.supply hb
   -- `step` and `reward` stand for the two products, so that the bounds below are linear.
   rw [Nat.add_mul, Nat.add_mul, Nat.mul_assoc] at hexits
   simp only [Nat.add_mul, Nat.mul_assoc] at hrewards
@@ -197,75 +135,117 @@ theorem packed_slashings_and_exits_valid (hfork : IsFulu fork)
   generalize hreward : rewardMax preset fork (2 ^ 58) = reward at hrewards
   -- The proposer slashings. `keepP` is what the filter computes on an entry.
   choose keepP hkeepP hkeepPiff using
-    proposerSlashingFilter_spec view stillValidP headersOk slashingOf
+    proposerSlashingFilter_spec view (PoolEntry.stillValid (T := RProposerSlashing)) headersOk
+      PoolEntry.inner
   obtain ⟨outP, s₁, houtP, hlenP, hrunP, hframeP⟩ := packed_proposer_slashings_valid
     (checks := checks)
-    (sliceIntoIter OpP) (Aeneas.Std.BuiltinFn OpP Bool)
-    (Aeneas.Std.BuiltinFn OpP RProposerSlashing) (cloneId OpP) poolP
-    (proposerSlashingFilter view stillValidP headersOk slashingOf) (pureFn slashingOf) limitP
-    hfork hchurn rfl (operation_pool.yields_slice poolP) keepP (fun op _ => hkeepP op) slashingOf
-    (fun _ _ => rfl) (fun r => r.signed_header_1.message.proposer_index) toSpecP
-    (fun op _ => hindexP (slashingOf op)) hkeysP hcorr
+    (sliceIntoIter (PoolEntry RProposerSlashing))
+    (Aeneas.Std.BuiltinFn (PoolEntry RProposerSlashing) Bool)
+    (Aeneas.Std.BuiltinFn (PoolEntry RProposerSlashing) RProposerSlashing)
+    (cloneId (PoolEntry RProposerSlashing)) pools.proposerSlashings
+    (proposerSlashingFilter view PoolEntry.stillValid headersOk PoolEntry.inner)
+    (pureFn PoolEntry.inner) limits.proposerSlashings
+    hfork hchurn rfl (operation_pool.yields_slice pools.proposerSlashings) keepP
+    (fun op _ => hkeepP op) PoolEntry.inner (fun _ _ => rfl)
+    (fun r => r.signed_header_1.message.proposer_index) toSpecProposerSlashing
+    (fun _ _ => rfl) hpools.proposersDistinct hcorr
     (fun op hop hk => by
       obtain ⟨hvalid, hheaders, hcore⟩ := (hkeepPiff op).mp hk
-      exact ⟨hcore, hheadersP op hop hheaders, hsignedP op hop hvalid⟩)
-    hstate (by rw [hstep]; omega) (fun b hb => by rw [hreward]; have := hrewards b hb; omega)
+      exact ⟨hcore, proposerSlashingWellFormed_of_headersOk hheaders,
+        hpools.proposerSigned op hop hvalid⟩)
+    hstateRoom (by rw [hstep]; omega)
+    (fun b hb => by rw [hreward]; have := hrewards b hb; omega)
   rw [hstep, hreward] at hframeP
   -- The covers. `to_be_slashed` holds the proposers of the packed slashings.
-  obtain ⟨coverList, hcoverList, hcoverLen, hcoverFrom⟩ := attesterCovers_spec view stillValidA
-    slashingOfA indicesA (proposerIndexSet outP.val) poolA.val
-  obtain ⟨covers, rfl⟩ : ∃ covers : Aeneas.Std.Slice (AttesterCover Im),
-      covers.val = coverList :=
-    ⟨Aeneas.Std.Slice.from coverList (Nat.le_trans hcoverLen poolA.property), by simp⟩
+  obtain ⟨covers, hcovers, hcoverLen, hcoverFrom⟩ := attesterCovers_spec view
+    (PoolEntry.stillValid (T := PooledAttesterSlashing preset fork)) PoolEntry.inner
+    PooledAttesterSlashing.indices (proposerIndexSet outP.val) pools.attesterSlashings.val
   -- The attester slashings.
   obtain ⟨outA, s₂, houtA, hlenA, _, hrunA, hframeA⟩ := packed_attester_slashings_valid
     (checks := checks)
-    (sliceIntoIter (AttesterCover Im)) (AttesterCover.maxCover Im) covers limitA label
-    hfork hchurn rfl (operation_pool.yields_slice covers) (by scalar_tac) (AttesterCover.model Im)
-    toSpecA hcorr (fun u => u ∈ (proposerIndexSet outP.val).toList)
+    (listIntoIter (AttesterCover (PooledAttesterSlashing preset fork)))
+    (AttesterCover.maxCover (PooledAttesterSlashing preset fork)) covers
+    limits.attesterSlashings attesterSlashingsLabel
+    hfork hchurn rfl (yields_list covers)
+    (Nat.le_trans hcoverLen pools.attesterSlashings.property)
+    (AttesterCover.model (PooledAttesterSlashing preset fork)) (fun slashing => slashing.spec)
+    hcorr (fun u => u ∈ (proposerIndexSet outP.val).toList)
     (fun a ha u => by
-      obtain ⟨op, _, _, hslashing, hcovers⟩ := hcoverFrom a ha
-      show a.covers u ↔ u64ToSpec u ∈ slashingIndices (toSpecA a.slashing) ∧ _
-      rw [hcovers u, hslashing, mem_slashingIndices_of_indices (hindicesA _)])
+      obtain ⟨op, _, _, hslashing, hcov⟩ := hcoverFrom a ha
+      show a.covers u ↔ u64ToSpec u ∈ slashingIndices a.slashing.spec ∧ _
+      rw [hcov u, hslashing, mem_slashingIndices_of_indices (indices := op.inner.indices)
+        ⟨op.inner.indices1, op.inner.indices2⟩])
     (fun a ha => by
       obtain ⟨op, hop, hvalid, hslashing, _⟩ := hcoverFrom a ha
-      show AttesterSlashingChecks config checks s (toSpecA a.slashing)
+      show AttesterSlashingChecks config checks s a.slashing.spec
       rw [hslashing]
-      exact hchecksA op hop hvalid)
+      exact hpools.attesterChecks op hop hvalid)
     hframeP
     (fun u hS => by
       obtain ⟨ps, hps, hidx⟩ := hS
       obtain ⟨r, hr, rfl⟩ := List.mem_map.mp hps
-      exact mem_proposerIndexSet.mpr ⟨r, hr, u64ToSpec_inj ((hindexP r).symm.trans hidx)⟩)
-    hstate (by rw [hstep]; omega)
+      exact mem_proposerIndexSet.mpr ⟨r, hr, u64ToSpec_inj hidx⟩)
+    hstateRoom (by rw [hstep]; omega)
     (fun b hb => by rw [hreward]; have := hrewards b hb; omega)
   rw [hstep] at hframeA
   -- The exclusion set, and the exits. `keepE` is what the filter computes on an entry.
-  obtain ⟨excl, hexcl⟩ := operation_pool.exclusionSet_ok initial
-    (Aeneas.Std.alloc.vec.Vec.deref outP) (outA.val.map fun c => indicesA c.slashing)
+  obtain ⟨excl, hexcl⟩ := operation_pool.exclusionSet_ok
+    (outA.val.foldl (fun set cover => extendIndexSet set (cover.balances.map Prod.fst))
+      (proposerIndexSet outP.val))
+    (Aeneas.Std.alloc.vec.Vec.deref outP) (outA.val.map fun cover => cover.slashing.indices)
   choose keepE hkeepE hkeepEiff using
-    voluntaryExitFilter_spec view excl stillValidE fun op => message (exitOf op)
-  obtain ⟨out, s₃, hout, hlen, hrun⟩ := packed_exits_valid_after_slashings (checks := checks)
-    (sliceIntoIter Op) (Aeneas.Std.BuiltinFn Op Bool) (Aeneas.Std.BuiltinFn Op X) (cloneId Op)
-    pool (voluntaryExitFilter view excl stillValidE fun op => message (exitOf op))
-    (pureFn exitOf) limit hfork hchurn rfl (operation_pool.yields_slice pool) keepE
-    (fun op _ => hkeepE op) exitOf (fun _ _ => rfl) message toSpec
-    (fun op _ => hmessage (exitOf op)) hkeys hcorr hexcl (outP.val.map toSpecP)
-    (outA.val.map fun c => toSpecA c.slashing)
+    voluntaryExitFilter_spec view excl (PoolEntry.stillValid (T := RSignedVoluntaryExit))
+      fun entry => entry.inner.message
+  obtain ⟨out, s₃, hout, hlen, hrunE⟩ := packed_exits_valid_after_slashings (checks := checks)
+    (sliceIntoIter (PoolEntry RSignedVoluntaryExit))
+    (Aeneas.Std.BuiltinFn (PoolEntry RSignedVoluntaryExit) Bool)
+    (Aeneas.Std.BuiltinFn (PoolEntry RSignedVoluntaryExit) RSignedVoluntaryExit)
+    (cloneId (PoolEntry RSignedVoluntaryExit)) pools.voluntaryExits
+    (voluntaryExitFilter view excl PoolEntry.stillValid fun entry => entry.inner.message)
+    (pureFn PoolEntry.inner) limits.voluntaryExits hfork hchurn rfl
+    (operation_pool.yields_slice pools.voluntaryExits) keepE (fun op _ => hkeepE op)
+    PoolEntry.inner (fun _ _ => rfl) (fun exit => exit.message) toSpecVoluntaryExit
+    (fun _ _ => ⟨rfl, rfl⟩) hpools.exitsDistinct hcorr hexcl
+    (outP.val.map toSpecProposerSlashing) (outA.val.map fun cover => cover.slashing.spec)
     (fun ps hps => by
       -- Each spec slashing is the spec form of a packed Rust slashing, with the same proposer.
       obtain ⟨r, hr, rfl⟩ := List.mem_map.mp hps
-      exact ⟨r, by simpa [Aeneas.Std.alloc.vec.Vec.deref] using hr, (hindexP r).symm⟩)
+      exact ⟨r, by simpa [Aeneas.Std.alloc.vec.Vec.deref] using hr, rfl⟩)
     (fun asl hasl => by
-      obtain ⟨c, hc, rfl⟩ := List.mem_map.mp hasl
-      exact ⟨indicesA c.slashing, List.mem_map.mpr ⟨c, hc, rfl⟩, hindicesA c.slashing⟩)
+      obtain ⟨cover, hcover, rfl⟩ := List.mem_map.mp hasl
+      exact ⟨cover.slashing.indices, List.mem_map.mpr ⟨cover, hcover, rfl⟩,
+        cover.slashing.indices1, cover.slashing.indices2⟩)
     hframeA
     (fun op hop hk => by
       obtain ⟨hnot, hvalid, hcores⟩ := (hkeepEiff op).mp hk
-      exact ⟨hnot, hcores, hsignedE op hop hvalid⟩)
-    hstate.toQueueRoom (by rw [hstep]; omega)
-  exact ⟨outP, s₁, covers, outA, s₂, excl, out, s₃, houtP, hrunP, hcoverList, houtA, hrunA,
-    hexcl, hout, hrun, hlenP, hlenA, hlen⟩
+      exact ⟨hnot, hcores, hpools.exitSigned op hop hvalid⟩)
+    hstateRoom.toQueueRoom (by rw [hstep]; omega)
+  -- The five calls are the model, and the three runs are the composite.
+  rw [List.foldlM_toArray] at hrunP hrunA hrunE
+  have hrunA' : (outA.val.map fun cover => cover.slashing.spec).foldlM
+      (processAttesterSlashing config checks) s₁ = .ok s₂ := hrunA
+  refine ⟨⟨outP, outA.val.map (·.slashing), out⟩, s₃, ?_, ?_, hlenP, by simpa using hlenA, hlen⟩
+  · simp only [getSlashingsAndExits, houtP, hcovers, houtA, hexcl, hout, Aeneas.Std.bind_ok]
+  · simp only [processSlashingsAndExits, Packed.toSpec, List.map_map, Function.comp_def, hrunP,
+      hrunA', hrunE, Base.ok_bind]
+
+/-- The same result on EthLib's `processOperations`: a block body that holds the packed slashings
+and exits, and no other operation, passes `process_operations` on the packing state `s`. -/
+theorem packed_operations_valid (hfork : IsFulu fork)
+    (hroom : OperationsRoom preset config fork (2 ^ 58) limits.proposerSlashings.val
+      limits.attesterSlashings.val limits.voluntaryExits.val)
+    (hstate : PackingState config checks hfork view s)
+    (hpools : PoolsValid config checks s pools) :
+    ∃ packed, getSlashingsAndExits view pools limits = Aeneas.Std.Result.ok packed ∧
+      packed.WithinLimits limits ∧
+      ∀ (body : BeaconBlockBody preset fork) (parentSlot : Slot),
+        HoldsOnly body packed.toSpec →
+          ∃ s', processOperations config checks s body parentSlot = .ok s' := by
+  obtain ⟨packed, s', hpacked, hrun, hwithin⟩ :=
+    packed_slashings_and_exits_valid hfork hroom hstate hpools
+  refine ⟨packed, hpacked, hwithin, fun body parentSlot holds => ⟨s', ?_⟩⟩
+  rw [processOperations_of_holdsOnly hfork holds]
+  exact hrun
 
 end
 

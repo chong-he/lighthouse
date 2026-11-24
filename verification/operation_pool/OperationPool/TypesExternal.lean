@@ -36,6 +36,10 @@ axiom bls.generic_signature.GenericSignature (Pub : Type) (Sig : Type) : Type
 @[rust_type "blst::min_pk::Signature"]
 axiom blst.min_pk.Signature : Type
 
-/-- [types::core::slot_epoch::Slot] -/
-@[rust_type "types::core::slot_epoch::Slot"]
-axiom types.core.slot_epoch.Slot : Type
+/-- [types::core::slot_epoch::Slot]
+
+    Model: the `u64` the type wraps (`pub struct Slot(u64)`). The extraction of `state_processing`
+    generates the same definition; this crate leaves the module opaque, so it is written here.
+    The extracted code of this crate never reads a slot. -/
+@[reducible, rust_type "types::core::slot_epoch::Slot"]
+def types.core.slot_epoch.Slot : Type := Std.U64

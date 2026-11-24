@@ -16,6 +16,10 @@ import StateProcessing
 -/
 
 #print axioms OperationPool.packed_slashings_and_exits_valid
+#print axioms OperationPool.packed_operations_valid
+#print axioms EthLibOps.processOperations_of_holdsOnly
+#print axioms OperationPool.Bridge.proposerSlashingWellFormed_of_headersOk
+#print axioms OperationPool.yields_list
 #print axioms OperationPool.proposerSlashingFilter_spec
 #print axioms OperationPool.voluntaryExitFilter_spec
 #print axioms OperationPool.attesterCovers_spec
