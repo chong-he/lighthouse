@@ -37,6 +37,10 @@ The premises are four:
 * `hpools`: `PoolsValid`, what the theorem assumes of the three pools.
 
 The fields of `PackingState` and `PoolsValid` are the trusted base. `README.md` lists them.
+
+Two facts about `s` are not premises, because they follow from `PackingState.reachable`: the
+state has one balance for each validator (`balancesMatch_of_reachable`), and the proposer of its
+slot is a validator of the registry (`proposer_of_reachable`).
 -/
 
 set_option autoImplicit false
@@ -75,8 +79,6 @@ structure PackingState (config : Config) (checks : SignatureChecks) (hfork : IsF
   corr : StateCorr config hfork.electra view s
   /-- A run of slots and blocks reaches `s` from a genesis state. -/
   reachable : ∃ g, Genesis config checks g ∧ Nonempty (Run config checks g ⟨fork, s⟩)
-  /-- The proposer of the slot is a validator of the registry. -/
-  proposer : ∃ p, getBeaconProposerIndex s = .ok p ∧ p.toNat < s.validators.data.size
   /-- The slot and the earliest exit epoch are below `2 ^ 63`. -/
   time : TimeBound hfork.electra s
   /-- The state holds `2 ^ 58` Gwei at most. -/
@@ -120,7 +122,9 @@ theorem packed_slashings_and_exits_valid (hfork : IsFulu fork)
       packed.WithinLimits limits := by
   -- The state facts the three packing theorems take.
   obtain ⟨g, hgenesis, ⟨hrun⟩⟩ := hstate.reachable
-  obtain ⟨p, hproposer, hproposerIn⟩ := hstate.proposer
+  -- The proposer of the slot is a validator of the registry, as `s` is reachable.
+  obtain ⟨p, hproposer, hproposerIn⟩ :=
+    proposer_of_reachable hfork.fulu hroom.slots hroom.seedLookahead hrun hgenesis
   have hcorr := hstate.corr
   have hchurn := hroom.churn
   have hstateRoom : StateRoom config (2 ^ 58) p s := StateRoom.of_bounds hroom

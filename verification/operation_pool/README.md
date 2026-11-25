@@ -114,7 +114,7 @@ the block can slash every validator that a later one names. `maximum_cover_spec`
 |---|---|---|
 | `hfork` | `IsFulu fork`: the fork of `s` is Fulu, or one of the forks that change the blob parameters alone | Assumed |
 | `hroom` | `OperationsRoom`: on a state within the two bounds below, a block with as many slashings and exits as the three limits allow has room | Proved for the limits of mainnet and minimal at Fulu (`operationsRoom_mainnet`, `operationsRoom_minimal`), and for smaller limits by `OperationsRoom.mono` |
-| `hstate` | `PackingState`: the five facts about `s` below | |
+| `hstate` | `PackingState`: the four facts about `s` below | |
 | `hpools` | `PoolsValid`: the five facts about the pools, listed under "What is trusted" | Trusted |
 
 The fields of `PackingState`:
@@ -122,8 +122,7 @@ The fields of `PackingState`:
 | Field | Meaning | Status |
 |---|---|---|
 | `corr` | The Lighthouse state corresponds to `s` | Trusted, see below |
-| `reachable` | A run of slots and blocks (EthLib's `Run`) reaches `s` from a genesis state (`Genesis`). The proof uses one consequence: `balances` has the registry's length | Assumed. EthLib's `reachable_balancesMatch` gives the consequence |
-| `proposer` | The proposer of the slot is a validator in the registry | Assumed. `process_block_header` checks it earlier in the block |
+| `reachable` | A run of slots and blocks (EthLib's `Run`) reaches `s` from a genesis state (`Genesis`). The proof uses two consequences: `balances` has the registry's length, and the proposer of the slot is a validator of the registry | Assumed. EthLib's `reachable_balancesMatch` and `Run.getBeaconProposerIndex_ok` give the consequences |
 | `time` | `TimeBound s`: the slot and the earliest exit epoch are below `2^63` | Assumed |
 | `supply` | `SupplyCap (2^58) s`: the balances add up to `2^58` Gwei at most, and so do the effective balances. The slashed balance recorded for the current epoch is `2^58` Gwei at most | Assumed |
 
@@ -141,10 +140,13 @@ replace the room formulas of the generic theorems, which cover the arithmetic of
 - `OperationsRoom` reads constants alone. It counts one exit and one whistleblower reward for
   each proposer slashing and for each validator an attester slashing can name
   (`MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT`, `131072` on mainnet), and one exit
-  for each voluntary exit. `hroom` states it at the three limits the Rust passes.
+  for each voluntary exit. `hroom` states it at the three limits the Rust passes. Two of its
+  fields are not about room: an epoch has at least one slot, and `MIN_SEED_LOOKAHEAD` is below
+  `MAX_SEED_LOOKAHEAD`. `proposer_of_reachable` needs them.
 - EthLib anchors reachability at a Phase 0 genesis state, and a run crosses the fork upgrades.
-  `Run.invariant` holds from any first state with EthLib's `Invariant`, so a statement from
-  another anchor state is a small change.
+  `Run.invariant` holds from any first state with EthLib's `Invariant`.
+  `Run.getBeaconProposerIndex_ok` is stated from a genesis state alone, so a statement from
+  another anchor state needs that theorem from the anchor as well.
 
 ### Supporting theorems
 
@@ -197,11 +199,12 @@ succeeds from its checks. `EthLibOps` proves those.
 | `processOperations_of_holdsOnly` | `Operations.lean` | At Fulu, `processOperations` on a block body that holds the slashings and exits `ops` and no other operation is `processSlashingsAndExits` on `ops` |
 | `operationsRoom_mainnet`, `operationsRoom_minimal` | `Bounds.lean` | `OperationsRoom` holds at Fulu for the block limits of each preset, at a cap of `2^58` Gwei |
 | `balancesMatch_of_reachable` | `Bounds.lean` | A state that a run reaches from a genesis state has one balance for each validator. This is EthLib's `reachable_balancesMatch` |
+| `proposer_of_reachable` | `Bounds.lean` | From Fulu, a state that a run reaches from a genesis state has a proposer for its slot, and the proposer is a validator of the registry. This is EthLib's `Run.getBeaconProposerIndex_ok` |
 
-The proofs use these theorems of EthLib, among others: `slashValidator_ok_of_room`,
+The proofs use these theorems of EthLib, among others: `slashValidator_total_of_room`,
 `slashValidator_ok`, `balance_slashValidator`, `isValidIndexedAttestation_of_keys`,
 `isValidIndexedAttestation_lt_size`, `mem_sortedSet`, `getTotalActiveBalance_exists_ok` and
-`reachable_balancesMatch`.
+`reachable_balancesMatch` and `Run.getBeaconProposerIndex_ok`.
 
 No proof uses `sorry`. `lake build Audit` prints the axioms of each theorem: Lean's `propext`,
 `Classical.choice` and `Quot.sound`, plus the opaque external declarations listed under "What is
@@ -316,8 +319,6 @@ Assumptions about the state, by design:
 - The packing state is a Fulu state that a run of the spec reaches from a genesis state
   (`hfork`, `PackingState.reachable`). This is where the proof assumes that Lighthouse's state
   transition is the spec's.
-- The proposer of the slot is in the registry (`PackingState.proposer`). The proof does not
-  derive it from the run.
 - The state is within the time bound and the supply cap (`PackingState.time`,
   `PackingState.supply`).
 
@@ -342,7 +343,7 @@ Assumptions about the state, by design:
   version of this work, on a model that wraps, left out: `epoch + EPOCHS_PER_SLASHINGS_VECTOR`,
   and the slashings entry plus the effective balance. `TimeBound` gives room for the first, and
   the third field of `SupplyCap` for the second.
-- **The room EthLib asks for.** `slashValidator_ok_of_room` (EthLib) asks that the proposer's
+- **The room EthLib asks for.** `slashValidator_total_of_room` (EthLib) asks that the proposer's
   balance has room for the whole effective balance of the slashed validator, where the reward
   is a fraction of it. `OperationsRoom` carries that extra `2^58` Gwei.
 - **The spec's loops.** `processSlashingsAndExits` is three folds, the ones EthLib's
@@ -404,8 +405,11 @@ Both sit under `../deps`, which Git ignores. No script fetches them yet.
 - `aeneas-release-2e3d448/`: the Aeneas release `nightly-2026.11.23-2e3d448`, on Lean v4.36.0,
   unpacked from `aeneas-linux-x86_64.tar.gz`. It bundles the `aeneas` and `charon` binaries and
   the Lean library.
-- `ethlib/`: a checkout of [EthLib](https://github.com/ethereum/EthLib) at commit `32d394779`,
-  on Lean v4.36.0. EthLib is pure Lean and needs no native library.
+- `ethlib/`: a checkout of [EthLib](https://github.com/ethereum/EthLib) on Lean v4.36.0, at
+  commit `86e2ae69a` of the branch `proof/lookahead-active-past-gloas`. That is `master` at
+  `31199cc3f` and one commit that is not upstream yet. The commit adds
+  `Run.getBeaconProposerIndex_ok`, which `proposer_of_reachable` calls. EthLib is pure Lean and
+  needs no native library.
 
 Aeneas and EthLib both require Mathlib `v4.36.0`, so the project has one copy. EthLib changes
 fast: a later commit can rename or restate the theorems that `EthLibOps` uses.

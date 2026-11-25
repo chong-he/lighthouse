@@ -3,6 +3,7 @@ module
 public import EthLibOps.AttesterSlashings
 public import EthLibOps.VoluntaryExits
 public import EthLib.Consensus.Proofs.Transition.ChainRoots
+public import EthLib.Consensus.Proofs.Transition.LookaheadActive
 
 /-!
 # Bounds a real state meets, and the room they give
@@ -22,8 +23,13 @@ hypotheses. This file reduces that room to three facts.
 `operationsRoom_minimal` check the constants of the two presets at Fulu, for the largest block
 and a cap of `2 ^ 58` Gwei.
 
-`balancesMatch_of_reachable` restates EthLib's `reachable_balancesMatch`: a state that a run of
-slots and blocks reaches from a genesis state has one balance for each validator.
+Two facts follow from reachability, for a state that a run of slots and blocks reaches from a
+genesis state:
+
+* `balancesMatch_of_reachable` restates EthLib's `reachable_balancesMatch`: the state has one
+  balance for each validator.
+* `proposer_of_reachable` restates EthLib's `Run.getBeaconProposerIndex_ok`: from Fulu, the state
+  has a proposer for its slot, and the proposer is a validator of the registry.
 -/
 
 @[expose] public section
@@ -58,6 +64,11 @@ structure OperationsRoom (preset : Preset) (config : Config) (fork : Base.Fork)
     (cap nP nA nE : Nat) : Prop where
   /-- The constants of the exit churn. -/
   churn : ChurnOk preset config
+  /-- An epoch has at least one slot. -/
+  slots : preset.SLOTS_PER_EPOCH ≠ 0
+  /-- `MIN_SEED_LOOKAHEAD` is below `MAX_SEED_LOOKAHEAD`, so the proposers the state looks ahead
+  to are among the validators whose activity is settled. -/
+  seedLookahead : preset.MIN_SEED_LOOKAHEAD.toNat + 1 ≤ preset.MAX_SEED_LOOKAHEAD.toNat
   /-- The slashings vector has a nonzero length. -/
   vector : preset.EPOCHS_PER_SLASHINGS_VECTOR ≠ 0
   /-- The length of the slashings vector is at most `2 ^ 63`. -/
@@ -90,8 +101,8 @@ theorem OperationsRoom.mono {cap nP nA nE nP' nA' nE' : Nat}
     omega
   have exits := Nat.mul_le_mul_right (exitStep preset cap) count
   have rewards := Nat.mul_le_mul_right (rewardMax preset fork cap) slashed
-  exact ⟨h.churn, h.vector, h.window, h.doubled, h.churnRoom, h.weight,
-    Nat.lt_of_le_of_lt (by omega) h.exits, Nat.lt_of_le_of_lt (by omega) h.rewards⟩
+  exact ⟨h.churn, h.slots, h.seedLookahead, h.vector, h.window, h.doubled, h.churnRoom,
+    h.weight, Nat.lt_of_le_of_lt (by omega) h.exits, Nat.lt_of_le_of_lt (by omega) h.rewards⟩
 
 variable {electra : .pectra ≤ fork} {cap nP nA nE : Nat} {s : BeaconState preset fork}
   {p : ValidatorIndex}
@@ -181,6 +192,19 @@ theorem balancesMatch_of_reachable {g : ForkedBeaconState preset}
     BalancesMatch s :=
   reachable_balancesMatch run genesis
 
+/-- From Fulu, a state that a run of slots and blocks reaches from a genesis state has a proposer
+for its slot, and the proposer is a validator of the registry. This is EthLib's
+`Run.getBeaconProposerIndex_ok`.
+
+From Fulu the proposer is read from the lookahead of the state, and each entry of the lookahead
+is an active validator. -/
+theorem proposer_of_reachable (fulu : .fusaka ≤ fork) (slots : preset.SLOTS_PER_EPOCH ≠ 0)
+    (seedLookahead : preset.MIN_SEED_LOOKAHEAD.toNat + 1 ≤ preset.MAX_SEED_LOOKAHEAD.toNat)
+    {g : ForkedBeaconState preset} (run : Run config checks g ⟨fork, s⟩)
+    (genesis : Genesis config checks g) :
+    ∃ p, getBeaconProposerIndex s = .ok p ∧ p.toNat < s.validators.data.size :=
+  Run.getBeaconProposerIndex_ok slots seedLookahead genesis run fulu
+
 /-- The mainnet constants at Fulu leave room for the largest block, on a state that holds
 `2 ^ 58` Gwei at most. -/
 theorem operationsRoom_mainnet :
@@ -188,7 +212,7 @@ theorem operationsRoom_mainnet :
       Preset.mainnet.MAX_PROPOSER_SLASHINGS.toNat
       (parameters Preset.mainnet .fusaka).MAX_ATTESTER_SLASHINGS.toNat
       Preset.mainnet.MAX_VOLUNTARY_EXITS.toNat := by
-  refine ⟨⟨?_, ?_, ?_⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> decide
+  refine ⟨⟨?_, ?_, ?_⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> decide
 
 /-- The minimal constants at Fulu leave room for the largest block, on a state that holds
 `2 ^ 58` Gwei at most. -/
@@ -197,6 +221,6 @@ theorem operationsRoom_minimal :
       Preset.minimal.MAX_PROPOSER_SLASHINGS.toNat
       (parameters Preset.minimal .fusaka).MAX_ATTESTER_SLASHINGS.toNat
       Preset.minimal.MAX_VOLUNTARY_EXITS.toNat := by
-  refine ⟨⟨?_, ?_, ?_⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> decide
+  refine ⟨⟨?_, ?_, ?_⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> decide
 
 end EthLibOps

@@ -15,7 +15,7 @@ when the state has room for it, and that the state after it has the `SlashFrame`
 before it. The frame is for the slashed validator alone. The exit queue moves by `exitStep` of
 its effective balance, and no balance grows by more than `whistleblowerReward`.
 
-EthLib's `slashValidator_ok_of_room` gives the success. The frame is read from the steps of the
+EthLib's `slashValidator_total_of_room` gives the success. The frame is read from the steps of the
 call, which `slashValidator_ok` lists.
 -/
 
@@ -118,7 +118,7 @@ theorem slashValidator_ok_frame (ok : ChurnOk preset config) (electra : .pectra 
       reward := fun _ => weight
       proposer := ⟨p, bp, proposer, bpOk, rewardRoom bp bpOk⟩
       balance := balanceAt i inside }
-  obtain ⟨after, computed⟩ := slashValidator_ok_of_room found room
+  obtain ⟨after, computed⟩ := slashValidator_total_of_room found room
   refine ⟨after, computed, ?_⟩
   -- The balances after the call.
   obtain ⟨payee, share', -, shareOk', paid⟩ := balance_slashValidator found computed

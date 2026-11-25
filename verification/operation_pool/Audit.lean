@@ -32,6 +32,7 @@ import StateProcessing
 #print axioms EthLibOps.operationsRoom_mainnet
 #print axioms EthLibOps.operationsRoom_minimal
 #print axioms EthLibOps.balancesMatch_of_reachable
+#print axioms EthLibOps.proposer_of_reachable
 #print axioms OperationPool.packed_attester_slashings_valid
 #print axioms operation_pool.maximum_cover_spec
 #print axioms OperationPool.packed_proposer_slashings_valid
