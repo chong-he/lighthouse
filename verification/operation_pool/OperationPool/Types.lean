@@ -87,4 +87,17 @@ structure max_cover.MaxCoverItem (T : Type _) where
   item : T
   available : Bool
 
+/-- Trait declaration: [operation_pool::validator_map::ValidatorIndexed]
+    Source: 'beacon_node/operation_pool/src/validator_map.rs', lines 12:0-15:1
+    Visibility: public -/
+structure validator_map.ValidatorIndexed (Self : Type _) where
+  validator_index : Self → Result Std.U64
+
+/-- [operation_pool::validator_map::ValidatorMap]
+    Source: 'beacon_node/operation_pool/src/validator_map.rs', lines 23:0-25:1
+    Visibility: public -/
+structure validator_map.ValidatorMap (V : Type _) where
+  map : std.collections.hash.map.HashMap Std.U64 V std.hash.random.RandomState
+    alloc.alloc.Global
+
 end operation_pool

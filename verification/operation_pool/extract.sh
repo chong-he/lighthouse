@@ -8,7 +8,8 @@
 # Two crates hold the cores, and each is extracted from its own crate:
 #
 #   operation_pool    filter_limit_operations, insert_proposer_slashing_indices,
-#                     insert_common_attesting_indices, max_cover::maximum_cover
+#                     insert_common_attesting_indices, max_cover::maximum_cover,
+#                     validator_map::ValidatorMap::{new, insert}
 #   state_processing  verify_exit_validator_checks, verify_exit_pending_balance,
 #                     verify_proposer_slashing_validator_checks
 #
@@ -72,15 +73,25 @@ run_aeneas() {
         -no-progress-bar
 }
 
+# The methods of `ValidatorMap` are named by plain paths: `--start-from` rejects impl patterns.
+#
+# `ValidatorMap::retain` stays opaque, and `OperationPool/FunsExternal.lean` models it. Its body
+# passes a closure to `HashMap::retain`, whose closure takes `&mut V`, and Aeneas emits Lean
+# for that closure that does not type-check.
 run_charon beacon_node/operation_pool "$HERE/.lake/operation_pool.llbc" \
     --start-from 'crate::filter_limit_operations' \
     --start-from 'crate::insert_proposer_slashing_indices' \
     --start-from 'crate::insert_common_attesting_indices' \
     --start-from 'crate::max_cover::maximum_cover' \
+    --start-from 'crate::validator_map::ValidatorMap::new' \
+    --start-from 'crate::validator_map::ValidatorMap::insert' \
+    --start-from 'crate::validator_map::ValidatorMap::retain' \
     --include 'crate::filter_limit_operations' \
     --include 'crate::insert_proposer_slashing_indices' \
     --include 'crate::insert_common_attesting_indices' \
-    --include 'crate::max_cover'
+    --include 'crate::max_cover' \
+    --include 'crate::validator_map' \
+    --opaque 'crate::validator_map::_::retain'
 run_aeneas "$HERE/.lake/operation_pool.llbc" "$HERE/OperationPool"
 
 VERIFY_EXIT='crate::per_block_processing::verify_exit'

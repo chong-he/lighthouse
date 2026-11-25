@@ -12,3 +12,5 @@ import OperationPool.PackedProposerSlashingsValid
 import OperationPool.PackedAttesterSlashingsValid
 import OperationPool.PackedExitsValid
 import OperationPool.PackedSlashingsAndExitsValid
+import OperationPool.ValidatorMap
+import OperationPool.PoolsInvariant

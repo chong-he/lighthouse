@@ -17,13 +17,13 @@ set_option maxHeartbeats 1000000
 /- You can set the `maxRecDepth` value with the `-max-recdepth` CLI option -/
 set_option maxRecDepth 2048
 
-/-- [std::collections::hash::set::HashSet]
-    Source: '/rustc/library/std/src/collections/hash/set.rs', lines 126:0-130:1
-    Name pattern: [std::collections::hash::set::HashSet]
+/-- [std::collections::hash::map::HashMap]
+    Source: '/rustc/library/std/src/collections/hash/map.rs', lines 245:0-250:1
+    Name pattern: [std::collections::hash::map::HashMap]
     Visibility: public -/
-@[rust_type "std::collections::hash::set::HashSet"]
-axiom std.collections.hash.set.HashSet (T : Type _) (S : Type _) (A : Type _) :
-  Type
+@[rust_type "std::collections::hash::map::HashMap"]
+axiom std.collections.hash.map.HashMap (K : Type _) (V : Type _) (S : Type _)
+  (A : Type _) : Type
 
 /-- [std::hash::random::RandomState]
     Source: '/rustc/library/std/src/hash/random.rs', lines 35:0-35:22
@@ -31,6 +31,14 @@ axiom std.collections.hash.set.HashSet (T : Type _) (S : Type _) (A : Type _) :
     Visibility: public -/
 @[rust_type "std::hash::random::RandomState"]
 axiom std.hash.random.RandomState : Type
+
+/-- [std::collections::hash::set::HashSet]
+    Source: '/rustc/library/std/src/collections/hash/set.rs', lines 126:0-130:1
+    Name pattern: [std::collections::hash::set::HashSet]
+    Visibility: public -/
+@[rust_type "std::collections::hash::set::HashSet"]
+axiom std.collections.hash.set.HashSet (T : Type _) (S : Type _) (A : Type _) :
+  Type
 
 /-- [std::hash::random::DefaultHasher]
     Source: '/rustc/library/std/src/hash/random.rs', lines 94:0-94:24

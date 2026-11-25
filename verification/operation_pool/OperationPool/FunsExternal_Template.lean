@@ -27,6 +27,30 @@ open operation_pool
 axiom U64.Insts.CoreHashHash.hash
   {H : Type _} (HasherInst : core.hash.Hasher H) : Std.U64 → H → Result H
 
+/-- [std::collections::hash::map::{std::collections::hash::map::HashMap<K, V, std::hash::random::RandomState, alloc::alloc::Global>}::new]:
+    Source: '/rustc/library/std/src/collections/hash/map.rs', lines 269:4-269:46
+    Name pattern: [std::collections::hash::map::{std::collections::hash::map::HashMap<@K, @V, std::hash::random::RandomState, alloc::alloc::Global>}::new]
+    Visibility: public -/
+@[rust_fun
+  "std::collections::hash::map::{std::collections::hash::map::HashMap<@K, @V, std::hash::random::RandomState, alloc::alloc::Global>}::new"]
+axiom std.collections.hash.map.HashMapKVRandomStateGlobal.new
+  (K : Type _) (V : Type _) :
+  Result (std.collections.hash.map.HashMap K V std.hash.random.RandomState
+    alloc.alloc.Global)
+
+/-- [std::collections::hash::map::{std::collections::hash::map::HashMap<K, V, S, A>}::insert]:
+    Source: '/rustc/library/std/src/collections/hash/map.rs', lines 1332:4-1332:53
+    Name pattern: [std::collections::hash::map::{std::collections::hash::map::HashMap<@K, @V, @S, @A>}::insert]
+    Visibility: public -/
+@[rust_fun
+  "std::collections::hash::map::{std::collections::hash::map::HashMap<@K, @V, @S, @A>}::insert"]
+axiom std.collections.hash.map.HashMap.insert
+  {K : Type _} {V : Type _} {S : Type _} {A : Type _} {Clause2_Hasher : Type _}
+  (corecmpEqInst : core.cmp.Eq K) (corehashHashInst : core.hash.Hash K)
+  (corehashBuildHasherInst : core.hash.BuildHasher S Clause2_Hasher) :
+  std.collections.hash.map.HashMap K V S A → K → V → Result ((Option V)
+    × (std.collections.hash.map.HashMap K V S A))
+
 /-- [std::collections::hash::set::{std::collections::hash::set::HashSet<T, std::hash::random::RandomState, alloc::alloc::Global>}::with_capacity]:
     Source: '/rustc/library/std/src/collections/hash/set.rs', lines 169:4-169:68
     Name pattern: [std::collections::hash::set::{std::collections::hash::set::HashSet<@T, std::hash::random::RandomState, alloc::alloc::Global>}::with_capacity]
@@ -99,4 +123,12 @@ axiom
     Source: 'beacon_node/operation_pool/src/metrics.rs', lines 43:0-45:1
     Visibility: public -/
 axiom metrics.set_max_cover_non_zero_items : Str → Std.Usize → Result Unit
+
+/-- [operation_pool::validator_map::{operation_pool::validator_map::ValidatorMap<V>}::retain]:
+    Source: 'beacon_node/operation_pool/src/validator_map.rs', lines 38:4-43:5
+    Visibility: public -/
+axiom validator_map.ValidatorMap.retain
+  {V : Type _} {F : Type _} (coreopsfunctionFnMutFPairU64Shared0VBoolInst :
+  core.ops.function.FnMut F (Std.U64 × V) Bool) :
+  validator_map.ValidatorMap V → F → Result (validator_map.ValidatorMap V)
 

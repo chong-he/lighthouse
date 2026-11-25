@@ -7,6 +7,7 @@ mod metrics;
 mod persistence;
 mod reward_cache;
 mod sync_aggregate_id;
+mod validator_map;
 
 pub use crate::bls_to_execution_changes::ReceivedPreCapella;
 pub use attestation::{AttMaxCover, PROPOSER_REWARD_DENOMINATOR, earliest_attestation_validators};
@@ -22,6 +23,7 @@ use types::EpochCacheError;
 use crate::attestation_storage::{AttestationMap, CheckpointKey};
 use crate::bls_to_execution_changes::BlsToExecutionChanges;
 use crate::sync_aggregate_id::SyncAggregateId;
+use crate::validator_map::{ValidatorIndexed, ValidatorMap};
 use attester_slashing::AttesterSlashingMaxCover;
 use bls::AggregateSignature;
 use max_cover::maximum_cover;
@@ -57,9 +59,9 @@ pub struct OperationPool<E: EthSpec + Default> {
     /// Set of attester slashings, and the fork version they were verified against.
     attester_slashings: RwLock<HashSet<SigVerifiedOp<AttesterSlashing<E>, E>>>,
     /// Map from proposer index to slashing.
-    proposer_slashings: RwLock<HashMap<u64, SigVerifiedOp<ProposerSlashing, E>>>,
+    proposer_slashings: RwLock<ValidatorMap<SigVerifiedOp<ProposerSlashing, E>>>,
     /// Map from exiting validator to their exit data.
-    voluntary_exits: RwLock<HashMap<u64, SigVerifiedOp<SignedVoluntaryExit, E>>>,
+    voluntary_exits: RwLock<ValidatorMap<SigVerifiedOp<SignedVoluntaryExit, E>>>,
     /// Map from credential changing validator to their position in the queue.
     bls_to_execution_changes: RwLock<BlsToExecutionChanges<E>>,
     /// Map from payload attestation data to the aggregate for that data.
@@ -99,6 +101,20 @@ pub struct AttestationStats {
 impl From<SyncAggregateError> for OpPoolError {
     fn from(e: SyncAggregateError) -> Self {
         OpPoolError::SyncAggregateError(e)
+    }
+}
+
+/// A proposer slashing is stored under the index of the proposer it slashes.
+impl<E: EthSpec> ValidatorIndexed for SigVerifiedOp<ProposerSlashing, E> {
+    fn validator_index(&self) -> u64 {
+        self.as_inner().proposer_index()
+    }
+}
+
+/// A voluntary exit is stored under the index of the validator that exits.
+impl<E: EthSpec> ValidatorIndexed for SigVerifiedOp<SignedVoluntaryExit, E> {
+    fn validator_index(&self) -> u64 {
+        self.as_inner().message.validator_index
     }
 }
 
@@ -467,10 +483,9 @@ impl<E: EthSpec> OperationPool<E> {
         &self,
         verified_proposer_slashing: SigVerifiedOp<ProposerSlashing, E>,
     ) {
-        self.proposer_slashings.write().insert(
-            verified_proposer_slashing.as_inner().proposer_index(),
-            verified_proposer_slashing,
-        );
+        self.proposer_slashings
+            .write()
+            .insert(verified_proposer_slashing);
     }
 
     /// Insert an attester slashing into the pool.
@@ -629,9 +644,7 @@ impl<E: EthSpec> OperationPool<E> {
 
     /// Insert a voluntary exit that has previously been checked elsewhere.
     pub fn insert_voluntary_exit(&self, exit: SigVerifiedOp<SignedVoluntaryExit, E>) {
-        self.voluntary_exits
-            .write()
-            .insert(exit.as_inner().message.validator_index, exit);
+        self.voluntary_exits.write().insert(exit);
     }
 
     /// Get a list of voluntary exits for inclusion in a block.
@@ -917,14 +930,14 @@ fn insert_common_attesting_indices(indices: &mut HashSet<u64>, first: &[u64], se
 /// in the state's validator registry and then passed to `prune_if`.
 /// Entries for unknown validators will be kept.
 fn prune_validator_hash_map<T, F, E: EthSpec>(
-    map: &mut HashMap<u64, SigVerifiedOp<T, E>>,
+    map: &mut ValidatorMap<SigVerifiedOp<T, E>>,
     prune_if: F,
     state: &BeaconState<E>,
 ) where
     F: Fn(u64, &Validator) -> bool,
     T: VerifyOperation<E>,
 {
-    map.retain(|&validator_index, op| {
+    map.retain(|validator_index, op| {
         op.signature_is_still_valid(&state.fork())
             && state
                 .validators()

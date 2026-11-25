@@ -17,6 +17,16 @@ set_option linter.unusedVariables false
 @[rust_type "std::collections::hash::set::HashSet"]
 def std.collections.hash.set.HashSet (T : Type) (S : Type) (A : Type) : Type := List T
 
+/-- [std::collections::hash::map::HashMap]
+
+    Model: the entries of the map, as a list of key and value, in some order. The hasher `S` and
+    allocator `A` carry no information. The functions that write a map keep one entry per key
+    (`OperationPool/FunsExternal.lean`). This assumes the key type's `Hash` and `Eq` impls agree
+    with equality of values, which is the contract `HashMap` requires. -/
+@[rust_type "std::collections::hash::map::HashMap"]
+def std.collections.hash.map.HashMap (K : Type) (V : Type) (S : Type) (A : Type) : Type :=
+  List (K × V)
+
 /-! The types below are left opaque: nothing is assumed about them beyond their existence.
 `blst::min_pk::PublicKey` is in `ExternalTypes.lean`, shared with the other extracted crate. -/
 

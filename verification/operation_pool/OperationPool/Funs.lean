@@ -57,7 +57,7 @@ def std.hash.random.RandomState.Insts.CoreHashBuildHasherDefaultHasher :
 }
 
 /-- [operation_pool::filter_limit_operations]: loop 0:
-    Source: 'beacon_node/operation_pool/src/lib.rs', lines 1:0-881:5 -/
+    Source: 'beacon_node/operation_pool/src/lib.rs', lines 1:0-894:5 -/
 @[rust_loop]
 def filter_limit_operations_loop
   {T : Type _} {V : Type _} {I : Type _} {F : Type _} {G : Type _}
@@ -99,7 +99,7 @@ def filter_limit_operations_loop
 partial_fixpoint
 
 /-- [operation_pool::filter_limit_operations]:
-    Source: 'beacon_node/operation_pool/src/lib.rs', lines 860:0-883:1 -/
+    Source: 'beacon_node/operation_pool/src/lib.rs', lines 873:0-896:1 -/
 def filter_limit_operations
   {T : Type _} {V : Type _} {I : Type _} {F : Type _} {G : Type _}
   {Clause0_IntoIter : Type _}
@@ -121,7 +121,7 @@ def filter_limit_operations
     (alloc.vec.Vec.new V) operations1
 
 /-- [operation_pool::insert_proposer_slashing_indices]: loop 0:
-    Source: 'beacon_node/operation_pool/src/lib.rs', lines 890:4-892:5 -/
+    Source: 'beacon_node/operation_pool/src/lib.rs', lines 903:4-905:5 -/
 @[rust_loop]
 def insert_proposer_slashing_indices_loop
   (iter : core.slice.iter.Iter
@@ -144,7 +144,7 @@ def insert_proposer_slashing_indices_loop
 partial_fixpoint
 
 /-- [operation_pool::insert_proposer_slashing_indices]:
-    Source: 'beacon_node/operation_pool/src/lib.rs', lines 889:0-893:1 -/
+    Source: 'beacon_node/operation_pool/src/lib.rs', lines 902:0-906:1 -/
 def insert_proposer_slashing_indices
   (indices : std.collections.hash.set.HashSet Std.U64
   std.hash.random.RandomState alloc.alloc.Global)
@@ -158,7 +158,7 @@ def insert_proposer_slashing_indices
   insert_proposer_slashing_indices_loop iter indices
 
 /-- [operation_pool::insert_common_attesting_indices]: loop 0:
-    Source: 'beacon_node/operation_pool/src/lib.rs', lines 904:4-906:5 -/
+    Source: 'beacon_node/operation_pool/src/lib.rs', lines 917:4-919:5 -/
 @[rust_loop]
 def insert_common_attesting_indices_loop0
   (iter : core.slice.iter.Iter Std.U64)
@@ -180,7 +180,7 @@ def insert_common_attesting_indices_loop0
 partial_fixpoint
 
 /-- [operation_pool::insert_common_attesting_indices]: loop 1:
-    Source: 'beacon_node/operation_pool/src/lib.rs', lines 907:4-911:5 -/
+    Source: 'beacon_node/operation_pool/src/lib.rs', lines 920:4-924:5 -/
 @[rust_loop]
 def insert_common_attesting_indices_loop1
   (iter : core.slice.iter.Iter Std.U64)
@@ -213,7 +213,7 @@ def insert_common_attesting_indices_loop1
 partial_fixpoint
 
 /-- [operation_pool::insert_common_attesting_indices]:
-    Source: 'beacon_node/operation_pool/src/lib.rs', lines 902:0-912:1 -/
+    Source: 'beacon_node/operation_pool/src/lib.rs', lines 915:0-925:1 -/
 def insert_common_attesting_indices
   (indices : std.collections.hash.set.HashSet Std.U64
   std.hash.random.RandomState alloc.alloc.Global) (first : Slice Std.U64)
@@ -440,5 +440,29 @@ def max_cover.maximum_cover
   max_cover.maximum_cover_loop1 coreitertraitscollectIntoIteratorInst
     MaxCoverInst { start := 0#usize, «end» := limit } all_items
     (alloc.vec.Vec.new T)
+
+/-- [operation_pool::validator_map::{operation_pool::validator_map::ValidatorMap<V>}::new]:
+    Source: 'beacon_node/operation_pool/src/validator_map.rs', lines 29:4-33:5
+    Visibility: public -/
+def validator_map.ValidatorMap.new
+  (V : Type _) : Result (validator_map.ValidatorMap V) := do
+  let hm ← std.collections.hash.map.HashMapKVRandomStateGlobal.new Std.U64 V
+  ok { map := hm }
+
+/-- [operation_pool::validator_map::{operation_pool::validator_map::ValidatorMap<V>}::insert]:
+    Source: 'beacon_node/operation_pool/src/validator_map.rs', lines 60:4-63:5
+    Visibility: public -/
+def validator_map.ValidatorMap.insert
+  {V : Type _} (ValidatorIndexedInst : validator_map.ValidatorIndexed V)
+  (self : validator_map.ValidatorMap V) (value : V) :
+  Result ((Option V) × (validator_map.ValidatorMap V))
+  := do
+  let index ← ValidatorIndexedInst.validator_index value
+  let (o, hm) ←
+    std.collections.hash.map.HashMap.insert core.cmp.EqU64
+      U64.Insts.CoreHashHash
+      std.hash.random.RandomState.Insts.CoreHashBuildHasherDefaultHasher
+      self.map index value
+  ok (o, { map := hm })
 
 end operation_pool

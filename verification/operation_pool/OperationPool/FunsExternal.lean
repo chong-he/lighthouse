@@ -65,6 +65,80 @@ noncomputable def std.collections.hash.set.HashSet.insert
   if value ∈ s.toList then ok (false, s)
   else ok (true, std.collections.hash.set.HashSet.ofList (value :: s.toList))
 
+/-! ## `std::collections::HashMap`
+
+The `Eq`, `Hash` and `BuildHasher` instances are ignored: a key is found when it equals the key
+of an entry. -/
+
+/-- The entries of a map. -/
+def std.collections.hash.map.HashMap.entries {K : Type} {V : Type} {S : Type} {A : Type}
+  (m : std.collections.hash.map.HashMap K V S A) : List (K × V) := m
+
+/-- The map with the given entries. -/
+def std.collections.hash.map.HashMap.ofEntries {K : Type} {V : Type} {S : Type} {A : Type}
+  (l : List (K × V)) : std.collections.hash.map.HashMap K V S A := l
+
+/-- [std::collections::hash::map::{HashMap<K, V, RandomState>}::new]
+
+    The empty map. -/
+@[rust_fun
+  "std::collections::hash::map::{std::collections::hash::map::HashMap<@K, @V, std::hash::random::RandomState, alloc::alloc::Global>}::new"]
+def std.collections.hash.map.HashMapKVRandomStateGlobal.new
+  (K : Type) (V : Type) :
+  Result (std.collections.hash.map.HashMap K V std.hash.random.RandomState
+    alloc.alloc.Global) :=
+  ok (std.collections.hash.map.HashMap.ofEntries [])
+
+open Classical in
+/-- [std::collections::hash::map::{HashMap<K, V, S, A>}::insert]
+
+    Stores the value under the key. The entry that the map had for the key, if any, is replaced,
+    and its value is returned. -/
+@[rust_fun
+  "std::collections::hash::map::{std::collections::hash::map::HashMap<@K, @V, @S, @A>}::insert"]
+noncomputable def std.collections.hash.map.HashMap.insert
+  {K : Type} {V : Type} {S : Type} {A : Type} {Clause2_Hasher : Type}
+  (corecmpEqInst : core.cmp.Eq K) (corehashHashInst : core.hash.Hash K)
+  (corehashBuildHasherInst : core.hash.BuildHasher S Clause2_Hasher)
+  (m : std.collections.hash.map.HashMap K V S A) (key : K) (value : V) :
+  Result ((Option V) × (std.collections.hash.map.HashMap K V S A)) :=
+  ok ((m.entries.find? fun entry => decide (entry.1 = key)).map Prod.snd,
+    std.collections.hash.map.HashMap.ofEntries
+      ((key, value) :: m.entries.filter fun entry => decide (entry.1 ≠ key)))
+
+/-! ## `ValidatorMap::retain`
+
+`extract.sh` leaves this method opaque, because Aeneas does not translate its body. -/
+
+/-- The entries that `keep` accepts. `keep` is called once for each entry, and each call gets
+the closure that the call before it returned. -/
+def validator_map.retainEntries {V : Type} {F : Type}
+  (inst : core.ops.function.FnMut F (Std.U64 × V) Bool) :
+  F → List (Std.U64 × V) → Result (List (Std.U64 × V))
+  | _, [] => ok []
+  | keep, entry :: rest => do
+    let (kept, keep1) ← inst.call_mut keep entry
+    let rest1 ← validator_map.retainEntries inst keep1 rest
+    ok (if kept then entry :: rest1 else rest1)
+
+/-- [operation_pool::validator_map::{ValidatorMap<V>}::retain]
+
+    ```rust
+    self.map.retain(|index, value| keep(*index, value));
+    ```
+
+    `HashMap::retain` calls the closure once for each entry and keeps the entries it accepts. The
+    closure gives `keep` the key and a shared reference to the value, so no value changes. `std`
+    does not fix the order of the calls; the model makes them in the order of the entries. -/
+def validator_map.ValidatorMap.retain
+  {V : Type} {F : Type} (coreopsfunctionFnMutFPairU64Shared0VBoolInst :
+  core.ops.function.FnMut F (Std.U64 × V) Bool)
+  (self : validator_map.ValidatorMap V) (keep : F) :
+  Result (validator_map.ValidatorMap V) := do
+  let entries ←
+    validator_map.retainEntries coreopsfunctionFnMutFPairU64Shared0VBoolInst keep self.map.entries
+  ok { map := std.collections.hash.map.HashMap.ofEntries entries }
+
 /-! ## Metrics -/
 
 /-- [operation_pool::metrics::set_max_cover_non_zero_items]

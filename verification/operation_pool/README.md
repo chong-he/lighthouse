@@ -115,7 +115,7 @@ the block can slash every validator that a later one names. `maximum_cover_spec`
 | `hfork` | `IsFulu fork`: the fork of `s` is Fulu, or one of the forks that change the blob parameters alone | Assumed |
 | `hroom` | `OperationsRoom`: on a state within the two bounds below, a block with as many slashings and exits as the three limits allow has room | Proved for the limits of mainnet and minimal at Fulu (`operationsRoom_mainnet`, `operationsRoom_minimal`), and for smaller limits by `OperationsRoom.mono` |
 | `hstate` | `PackingState`: the four facts about `s` below | |
-| `hpools` | `PoolsValid`: the five facts about the pools, listed under "What is trusted" | Trusted |
+| `hpools` | `PoolsValid`: the five facts about the pools, listed under "What is trusted" | Proved from a history of the pools (`poolsValid_of_inv`), see "The invariant of the pools" |
 
 The fields of `PackingState`:
 
@@ -148,6 +148,70 @@ replace the room formulas of the generic theorems, which cover the arithmetic of
   `Run.getBeaconProposerIndex_ok` is stated from a genesis state alone, so a statement from
   another anchor state needs that theorem from the anchor as well.
 
+### The invariant of the pools
+
+`PoolsValid` is a premise of the main theorem. `OperationPool/PoolsInvariant.lean` proves it
+from a history of the pools, and states the main theorem on that history:
+
+```lean
+theorem packed_slashings_and_exits_valid_of_history (hfork : IsFulu fork)
+    (hroom : OperationsRoom preset config fork (2 ^ 58) limits.proposerSlashings.val
+      limits.attesterSlashings.val limits.voluntaryExits.val)
+    (hstate : PackingState config checks hfork view s)
+    (hstart : PoolInv config checks start.1 start.2)
+    (hsteps : Relation.ReflTransGen (PoolStep config checks) start (s, maps))
+    (hreads : pools.Reads maps) :
+    ∃ packed s', getSlashingsAndExits view pools limits = ok packed ∧
+      processSlashingsAndExits config checks s packed.toSpec = .ok s' ∧
+      packed.WithinLimits limits
+```
+
+> The pools had the invariant on some state, for instance as empty pools. Moves of the pools
+> and of the state then led to the packing state `s` and to the pools that
+> `get_slashings_and_exits` reads. Then the conclusion of the main theorem holds.
+
+- `PoolMaps` is the three pools as the op pool holds them: two `ValidatorMap`s, for the proposer
+  slashings and the voluntary exits, and the entries of the `HashSet` of attester slashings.
+- `PoolInv config checks s maps` is the invariant on the state `s`. Each map is keyed: it has one
+  entry per key, and each operation is stored under the index of its validator. Each entry whose
+  signature is still valid passes the spec's signature checks on `s`. Empty pools have the
+  invariant (`PoolInv.empty`).
+- `PoolStep` is one move. `PoolInv.step` proves that each move keeps the invariant.
+- `Pools.Reads pools maps` says that each slice `get_slashings_and_exits` iterates is a
+  permutation of the entries of its pool. `poolsValid_of_inv` gives `PoolsValid` from the
+  invariant, for any such pools.
+
+| Move | What it is | What it assumes |
+|---|---|---|
+| `advance` | The state moves to a state that extends it (`Extends`) | Nothing for a run of slots and blocks within the fork (`PoolStep.advance_of_run`) |
+| `insertProposerSlashing`, `insertVoluntaryExit` | The extracted `ValidatorMap::insert` | The operation passes the spec's signature checks on the current state |
+| `retainProposerSlashings`, `retainVoluntaryExits` | `ValidatorMap::retain`, with any closure | The model of `retain` |
+| `insertAttesterSlashing` | `HashSet::insert`, on a list | The slashing passes `AttesterSlashingChecks` on the current state |
+| `pruneAttesterSlashings` | `HashSet::retain`, on a list | Nothing |
+
+`Extends s s'` (`EthLibOps/Stability.lean`) names what the signature checks read of a state. The
+public keys of `s` are a prefix of the public keys of `s'`, and the two states have the same fork
+versions and the same genesis validators root. A check that passes on `s` then passes on `s'`
+(`ProposerSlashingSigned.of_extends`, `ExitSigned.of_extends`,
+`AttesterSlashingChecks.of_extends`). `extends_of_run` proves `Extends` for a run of slots and
+blocks between two states of one fork, with EthLib's theorems that a step never overwrites a
+public key or the genesis validators root.
+
+Limits of this result:
+
+- **One fork.** The moves are between states of one fork. An entry's `stillValid` flag is fixed,
+  which is right while `state.fork()` does not change. Entries that a pool carries over the Fulu
+  upgrade enter through `hstart`.
+- **One direction.** `Extends` needs the registry of the later state to hold the registry of the
+  earlier one. A reorg to a state with a shorter registry is not an `advance`. An attester
+  slashing can name a validator that is missing there, and Lighthouse does not check that again
+  at packing.
+- **The insert premise.** That an inserted operation passes the checks on the current state is
+  assumed. In Lighthouse `SigVerifiedOp::validate` makes the checks, with BLS, before an
+  operation enters a pool.
+- **The attester slashings.** Their pool is a `HashSet` with no key logic, so its two writers are
+  modelled on a list and not extracted.
+
 ### Supporting theorems
 
 | Theorem | File | Statement |
@@ -172,6 +236,12 @@ replace the room formulas of the generic theorems, which cover the arithmetic of
 | `yields_list` | `OperationPool/Pools.lean` | The list iterator yields the entries of the list, in order |
 | `packed_exits_valid` | `OperationPool/PackedExitsValid.lean` | The packed exits succeed from any state with the slash frame of the packing state |
 | `packed_exits_valid_direct` | `OperationPool/PackedExitsValid.lean` | The packed exits succeed from the packing state itself |
+| `keyed_new`, `Keyed.insert`, `Keyed.retain` | `OperationPool/ValidatorMap.lean` | The map `ValidatorMap::new` returns is keyed, and `insert` and `retain` keep a map keyed |
+| `insert_ok` | `OperationPool/ValidatorMap.lean` | `ValidatorMap::insert` does not panic |
+| `Keyed.values_pairwise` | `OperationPool/ValidatorMap.lean` | The operations of a keyed map are about pairwise distinct validators |
+| `mem_values_of_insert`, `mem_values_of_retain` | `OperationPool/ValidatorMap.lean` | The operations after `insert` are the new one and operations the map had. The operations after `retain` are operations the map had |
+| `PoolInv.empty`, `PoolInv.step`, `PoolInv.steps` | `OperationPool/PoolsInvariant.lean` | Empty pools have the invariant, and each move keeps it |
+| `poolsValid_of_inv` | `OperationPool/PoolsInvariant.lean` | Pools that enumerate maps with the invariant are valid |
 
 The three generic theorems state the room with one bound `B` on every effective balance:
 `exitStep preset B` epochs and `rewardMax preset fork B` Gwei for each validator that exits or is
@@ -199,11 +269,15 @@ succeeds from its checks. `EthLibOps` proves those.
 | `processOperations_of_holdsOnly` | `Operations.lean` | At Fulu, `processOperations` on a block body that holds the slashings and exits `ops` and no other operation is `processSlashingsAndExits` on `ops` |
 | `operationsRoom_mainnet`, `operationsRoom_minimal` | `Bounds.lean` | `OperationsRoom` holds at Fulu for the block limits of each preset, at a cap of `2^58` Gwei |
 | `balancesMatch_of_reachable` | `Bounds.lean` | A state that a run reaches from a genesis state has one balance for each validator. This is EthLib's `reachable_balancesMatch` |
+| `extends_of_run` | `Stability.lean` | A run of slots and blocks within a fork reaches a state that extends its first state, for a first state that a run from genesis reaches |
+| `ProposerSlashingSigned.of_extends`, `ExitSigned.of_extends`, `AttesterSlashingChecks.of_extends` | `Stability.lean` | A signature check that passes on a state passes on a state that extends it |
 
 The proofs use these theorems of EthLib, among others: `slashValidator_total_of_room`,
 `slashValidator_ok`, `balance_slashValidator`, `isValidIndexedAttestation_of_keys`,
 `isValidIndexedAttestation_lt_size`, `mem_sortedSet`, `getTotalActiveBalance_exists_ok` and
-`reachable_balancesMatch` and `Run.getBeaconProposerIndex_ok`.
+`reachable_balancesMatch`, `Run.getBeaconProposerIndex_ok`,
+`validatorKeys_prefix_and_distinct_of_chainSteps`, `Run.genesisValidatorsRoot`,
+`forkVersions_eq_of_fork` and `isValidIndexedAttestation_of_keys`.
 
 No proof uses `sorry`. `lake build Audit` prints the axioms of each theorem: Lean's `propext`,
 `Classical.choice` and `Quot.sound`, plus the opaque external declarations listed under "What is
@@ -254,7 +328,7 @@ For the exits, after the slashings:
 
 ## The Rust that is extracted
 
-Seven functions, each free of `EthSpec`, that Aeneas translates:
+Nine functions, each free of `EthSpec`, that Aeneas translates:
 
 | Function | Crate | Role |
 |---|---|---|
@@ -265,6 +339,8 @@ Seven functions, each free of `EthSpec`, that Aeneas translates:
 | `verify_proposer_slashing_validator_checks` | `state_processing` | The check of `verify_proposer_slashing` on the proposer's record |
 | `verify_exit_validator_checks` | `state_processing` | The checks of `verify_exit` on the validator record |
 | `verify_exit_pending_balance` | `state_processing` | The pending-withdrawal check of `verify_exit` |
+| `ValidatorMap::new` | `operation_pool` | The empty map of operations keyed by validator index |
+| `ValidatorMap::insert` | `operation_pool` | Reads the validator index from the operation and stores the operation under it. It writes the pools of proposer slashings and of voluntary exits |
 
 `Validator::is_slashable_at` and `Validator::is_active_at` are extracted with the cores that
 call them. The model of `AttesterSlashingMaxCover::new` calls the first one too.
@@ -290,6 +366,17 @@ attestations, where the max cover adds its slashable members. A validator in the
 that is not slashable is slashed already, not yet active, or withdrawable, and has no valid
 exit, so the packed exits are the same on any reachable state.
 
+The pools of proposer slashings and of voluntary exits were `HashMap<u64, SigVerifiedOp<..>>`
+fields of `OperationPool`, and each caller computed the key. They are now `ValidatorMap`s
+(`beacon_node/operation_pool/src/validator_map.rs`). The map is a private field, so `insert` and
+`retain` are the only functions that write it, and `insert` computes the key through the trait
+`ValidatorIndexed`. `FromIterator`, which the persistence code uses, is a loop of `insert`. The
+`HashMap` calls are the ones the code made before.
+
+`ValidatorMap::retain` is not extracted. Its body passes a closure to `HashMap::retain`, whose
+closure takes `&mut V`, and Aeneas emits Lean for that closure that does not type-check.
+`extract.sh` keeps the method opaque, and `OperationPool/FunsExternal.lean` models it.
+
 ## What is trusted
 
 Not proved, and to be checked by inspection:
@@ -297,19 +384,22 @@ Not proved, and to be checked by inspection:
 | Item | Where it enters |
 |---|---|
 | Charon, Aeneas and the Lean kernel | Translation and checking |
-| The external models: `HashSet` as a list of distinct values (`with_capacity`, `insert`, `contains`), `metrics::set_max_cover_non_zero_items` as a call that returns, and the opaque external types and hashing functions | `OperationPool/TypesExternal.lean`, `OperationPool/FunsExternal.lean`, `StateProcessing/TypesExternal.lean`, `ExternalTypes.lean` |
+| The external models: `HashSet` as a list of distinct values (`with_capacity`, `insert`, `contains`), `HashMap` as a list of entries with one entry per key (`new`, `insert`), `ValidatorMap::retain` as the entries its closure accepts, `metrics::set_max_cover_non_zero_items` as a call that returns, and the opaque external types and hashing functions | `OperationPool/TypesExternal.lean`, `OperationPool/FunsExternal.lean`, `StateProcessing/TypesExternal.lean`, `ExternalTypes.lean` |
 | The models of `OperationPool/Concrete.lean` stand for the Rust values. A pool's iterator yields each pool entry once, as the slice iterator does on a slice of the entries. A mapping closure clones the operation of the entry and does not panic | `getSlashingsAndExits`: `sliceIntoIter`, `pureFn`, `cloneId` |
 | The models of `OperationPool/Closures.lean` compute what the Rust closures compute. Each definition quotes the Rust it models. The two filters are `proposerSlashingFilter` and `voluntaryExitFilter`. `attesterCovers` is what the `flat_map` iterator of `get_attester_slashings` yields, and `attesterCoverNew` is `AttesterSlashingMaxCover::new` with `get_slashable_indices_modular` written out. `proposerIndexSet` is the set `to_be_slashed` that `new` reads | The form of the main theorem |
 | The reads of the models are the reads of the Rust. `verify_proposer_slashing<E>`, `verify_exit<E>`, `get_slashable_indices_modular` and `get_effective_balance` read the validator at an index with `state.validators().get(index)`, and the models read `StateView.validatorAt`. The epoch is `state.current_epoch()`, the two constants come from the chain spec, and the pending balance is `get_pending_balance_to_withdraw(index).ok()` | `StateView` |
 | `AttesterCover` stands for `AttesterSlashingMaxCover`: the slashing, and `effective_balances` as a list of key and value. Its methods are those of the Rust: `score` is the sum of the values, which wraps as in a release build; `update_covering_set` is `retain` on the keys the picked cover does not have; `clone` returns its argument | `AttesterCover`, `AttesterCover.maxCover` |
 | `getSlashingsAndExits` makes the calls of the Rust body, with the same arguments. `to_be_slashed` holds the proposers of the packed proposer slashings when the covers are built. `get_attester_slashings` extends it with the keys of each picked cover (`extendIndexSet`, a model of `HashSet::extend`) and returns `convert_to_object(cover.intermediate())` for each picked cover. The exclusion set is built from the packed slashings, and the exit filter reads that set. The `flat_map` iterator of the covers is a list iterator (`listIntoIter`), and the label of the metric is an uninterpreted constant | `getSlashingsAndExits` (`OperationPool/Pools.lean`) |
 | The three limits are the preset's: `E::MaxProposerSlashings`, `E::max_attester_slashings_electra()` and `E::MaxVoluntaryExits` | `limits`, `hroom` |
-| An attester slashing of the pool with a signature that is still valid passes the spec's checks before the walk, on the packing state: the two attestations are slashable, and each is a valid indexed attestation (indices not empty, sorted, in the registry, aggregate signature valid). `SigVerifiedOp` is built only after `verify_attester_slashing`, and `signature_is_still_valid` checks the fork versions. Lighthouse does not check again at packing that every attesting index is in the registry of the packing state: `new` looks up the indices that both attestations name, and no other | `PoolsValid.attesterChecks` (`AttesterSlashingChecks`) |
-| A `PoolEntry` stands for `SigVerifiedOp<T, E>`: `inner` is `as_inner()`, and `stillValid` is `signature_is_still_valid(&state.fork())` on the packing state. `RSignedVoluntaryExit` is written by hand from the Rust struct, which no extracted function mentions. `Slot` is the `u64` it wraps | `PoolEntry`, `RSignedVoluntaryExit`, `OperationPool/TypesExternal.lean` |
-| The exit pool's `HashMap` is keyed by `message.validator_index`, and the proposer-slashing pool's by `proposer_index()` (`insert_voluntary_exit`, `insert_proposer_slashing`, `persistence.rs`), so the entries name pairwise distinct validators | `PoolsValid.exitsDistinct`, `PoolsValid.proposersDistinct` |
+| An attester slashing passes the spec's checks before the walk on the state it is inserted on: the two attestations are slashable, and each is a valid indexed attestation (indices not empty, sorted, in the registry, aggregate signature valid). `SigVerifiedOp` is built only after `verify_attester_slashing`. That the checks pass on later states is proved (`AttesterSlashingChecks.of_extends`), for states whose registry extends the earlier one. Lighthouse does not check again at packing that every attesting index is in the registry of the packing state: `new` looks up the indices that both attestations name, and no other | The premise `passes` of `PoolStep.insertAttesterSlashing` |
+| The pool of attester slashings is a `HashSet`. Its writers are `insert_attester_slashing` (`HashSet::insert`) and `prune_attester_slashings` (`HashSet::retain`), modelled on the list of its entries | `PoolStep.insertAttesterSlashing`, `PoolStep.pruneAttesterSlashings` |
+| A `PoolEntry` stands for `SigVerifiedOp<T, E>`: `inner` is `as_inner()`, and `stillValid` is `signature_is_still_valid(&state.fork())` on the packing state. The flag is a field of the entry, so a history of the pools keeps it fixed, which is right within a fork. `RSignedVoluntaryExit` is written by hand from the Rust struct, which no extracted function mentions. `Slot` is the `u64` it wraps | `PoolEntry`, `RSignedVoluntaryExit`, `OperationPool/TypesExternal.lean` |
+| The entries of the two keyed pools name pairwise distinct validators. Proved for pools with a history (`Keyed.values_pairwise`). What is trusted in its place: the two instances of `ValidatorIndexed` restate the Rust impls (`proposer_index()` and `message.validator_index`), and the private field of `ValidatorMap` has no writer but `insert` and `retain` | `proposerSlashingIndexed`, `voluntaryExitIndexed` (`OperationPool/PoolsInvariant.lean`) |
+| The slices that `get_slashings_and_exits` iterates are the entries of the pools, each once: `values()` on the two maps and `iter()` on the set | `Pools.Reads` |
+| The history of the pools is a chain of `PoolStep`s. In particular the states on which operations are validated, and the packing state, form a chain in which each state extends the one before (`Extends`) | `hsteps` of `packed_slashings_and_exits_valid_of_history` |
 | `headersOk` is the three checks of `verify_proposer_slashing<E>` on the two headers: same slot, same proposer index, and `header_1 != header_2`, which compares field by field. `toSpecProposerSlashing` and `toSpecVoluntaryExit` describe the spec's form of a Rust value: the same integers and the same 32-byte roots. A signature is an opaque Rust type, and `signatureBytes` is an uninterpreted function for its 96 bytes | `OperationPool/Bridge/ToSpec.lean` |
 | The Lighthouse state corresponds to the spec state: same validator epochs and slashed flags, same current epoch, and a pending balance that was computed without overflow | `PackingState.corr` (`StateCorr`) |
-| A proposer slashing or an exit of a pool with a signature that is still valid has valid signatures for the packing state. `SigVerifiedOp` is built only after a signature check, and a validator's public key never changes. For an exit, the Fulu domain is fixed at the Capella fork version. For a proposer slashing, `signature_is_still_valid` checks that the fork version at the header's epoch is the one the signature was checked under | `PoolsValid.exitSigned` (`ExitSigned`), `PoolsValid.proposerSigned` (`ProposerSlashingSigned`) |
+| A proposer slashing or an exit has valid signatures on the state it is inserted on. `SigVerifiedOp` is built only by `validate`, which checks the signatures on that state. That the signatures stay valid on later states is proved (`ProposerSlashingSigned.of_extends`, `ExitSigned.of_extends`) | The premise `signed` of `PoolStep.insertProposerSlashing` and `PoolStep.insertVoluntaryExit` |
 | The spec's form of an attester slashing of the pool names the attesting indices that the Rust reads. Rust's `AttesterSlashing<E>` is not extracted, so the model type holds both and the two equations | `PooledAttesterSlashing` (`indices1`, `indices2`) |
 | EthLib's model is the consensus spec. It is checked against the consensus spec tests. The signature checks are the `SignatureChecks` the theorem is stated for: any pair of check functions, of which `SignatureChecks.bls` is the real one | The spec-side theorems |
 
@@ -367,6 +457,7 @@ EthLibOps/                    proofs on EthLib's spec alone; no Rust
   VoluntaryExits.lean         the voluntary exits of a block succeed
   Bounds.lean                 `TimeBound`, `SupplyCap`, `OperationsRoom`; mainnet and minimal
   Operations.lean             `processSlashingsAndExits`, and its link to `processOperations`
+  Stability.lean              the signature checks of an operation hold on later states
 OperationPool/
   Types.lean, Funs.lean       generated from `operation_pool`
   TypesExternal.lean          hand-written models of external types (trusted)
@@ -385,6 +476,8 @@ OperationPool/
   PackedAttesterSlashingsValid.lean   the attester slashings, after the proposer slashings
   PackedExitsValid.lean               the exits, after the slashings
   PackedSlashingsAndExitsValid.lean   main theorem, and the same on `processOperations`
+  ValidatorMap.lean           proof: `ValidatorMap` keeps one operation per validator
+  PoolsInvariant.lean         `PoolsValid` from a history of the pools
 StateProcessing/
   Types.lean, Funs.lean       generated from `state_processing`
   TypesExternal.lean          hand-written opaque external types (trusted)

@@ -17,6 +17,21 @@ import StateProcessing
 
 #print axioms OperationPool.packed_slashings_and_exits_valid
 #print axioms OperationPool.packed_operations_valid
+#print axioms OperationPool.packed_slashings_and_exits_valid_of_history
+#print axioms OperationPool.poolsValid_of_inv
+#print axioms OperationPool.PoolInv.empty
+#print axioms OperationPool.PoolInv.step
+#print axioms OperationPool.PoolInv.steps
+#print axioms OperationPool.PoolStep.advance_of_run
+#print axioms operation_pool.validator_map.keyed_new
+#print axioms operation_pool.validator_map.insert_ok
+#print axioms operation_pool.validator_map.Keyed.insert
+#print axioms operation_pool.validator_map.Keyed.retain
+#print axioms operation_pool.validator_map.Keyed.values_pairwise
+#print axioms EthLibOps.extends_of_run
+#print axioms EthLibOps.ProposerSlashingSigned.of_extends
+#print axioms EthLibOps.ExitSigned.of_extends
+#print axioms EthLibOps.AttesterSlashingChecks.of_extends
 #print axioms EthLibOps.processOperations_of_holdsOnly
 #print axioms OperationPool.Bridge.proposerSlashingWellFormed_of_headersOk
 #print axioms OperationPool.yields_list
