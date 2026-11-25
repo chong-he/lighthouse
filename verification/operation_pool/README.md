@@ -405,8 +405,8 @@ Both sit under `../deps`, which Git ignores. No script fetches them yet.
   unpacked from `aeneas-linux-x86_64.tar.gz`. It bundles the `aeneas` and `charon` binaries and
   the Lean library.
 - `ethlib/`: a checkout of [EthLib](https://github.com/ethereum/EthLib) on Lean v4.36.0, at
-  commit `86e2ae69a` of the branch `proof/lookahead-active-past-gloas`. That is `master` at
-  `31199cc3f` and one commit that is not upstream yet. The commit adds
+  commit `77061f63d` of the branch `proof/lookahead-active-past-gloas`. That is `master` at
+  `a42542228` and one commit that is not upstream yet. The commit adds
   `Run.getBeaconProposerIndex_ok`, which the main theorem calls. EthLib is pure Lean and
   needs no native library.
 

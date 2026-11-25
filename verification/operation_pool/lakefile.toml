@@ -6,8 +6,8 @@ defaultTargets = ["OperationPool", "StateProcessing"]
 name = "aeneas"
 path = "../deps/aeneas-release-2e3d448/backends/lean"
 
-# EthLib checkout at commit 86e2ae69a (Lean v4.36.0), cloned under `../deps`. That is the branch
-# `proof/lookahead-active-past-gloas`: upstream `master` at 31199cc3f and one commit on top.
+# EthLib checkout at commit 77061f63d (Lean v4.36.0), cloned under `../deps`. That is the branch
+# `proof/lookahead-active-past-gloas`: upstream `master` at a42542228 and one commit on top.
 [[require]]
 name = "EthLib"
 path = "../deps/ethlib"
