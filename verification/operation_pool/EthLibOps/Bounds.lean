@@ -23,13 +23,12 @@ hypotheses. This file reduces that room to three facts.
 `operationsRoom_minimal` check the constants of the two presets at Fulu, for the largest block
 and a cap of `2 ^ 58` Gwei.
 
-Two facts follow from reachability, for a state that a run of slots and blocks reaches from a
-genesis state:
+`balancesMatch_of_reachable` restates EthLib's `reachable_balancesMatch`: a state that a run of
+slots and blocks reaches from a genesis state has one balance for each validator.
 
-* `balancesMatch_of_reachable` restates EthLib's `reachable_balancesMatch`: the state has one
-  balance for each validator.
-* `proposer_of_reachable` restates EthLib's `Run.getBeaconProposerIndex_ok`: from Fulu, the state
-  has a proposer for its slot, and the proposer is a validator of the registry.
+The file also imports EthLib's `Run.getBeaconProposerIndex_ok` for the main theorem: from Fulu,
+such a state has a proposer for its slot, and the proposer is a validator of the registry. Its
+two premises on the preset are the fields `slots` and `seedLookahead` of `OperationsRoom`.
 -/
 
 @[expose] public section
@@ -191,19 +190,6 @@ theorem balancesMatch_of_reachable {g : ForkedBeaconState preset}
     (run : Run config checks g ⟨fork, s⟩) (genesis : Genesis config checks g) :
     BalancesMatch s :=
   reachable_balancesMatch run genesis
-
-/-- From Fulu, a state that a run of slots and blocks reaches from a genesis state has a proposer
-for its slot, and the proposer is a validator of the registry. This is EthLib's
-`Run.getBeaconProposerIndex_ok`.
-
-From Fulu the proposer is read from the lookahead of the state, and each entry of the lookahead
-is an active validator. -/
-theorem proposer_of_reachable (fulu : .fusaka ≤ fork) (slots : preset.SLOTS_PER_EPOCH ≠ 0)
-    (seedLookahead : preset.MIN_SEED_LOOKAHEAD.toNat + 1 ≤ preset.MAX_SEED_LOOKAHEAD.toNat)
-    {g : ForkedBeaconState preset} (run : Run config checks g ⟨fork, s⟩)
-    (genesis : Genesis config checks g) :
-    ∃ p, getBeaconProposerIndex s = .ok p ∧ p.toNat < s.validators.data.size :=
-  Run.getBeaconProposerIndex_ok slots seedLookahead genesis run fulu
 
 /-- The mainnet constants at Fulu leave room for the largest block, on a state that holds
 `2 ^ 58` Gwei at most. -/

@@ -142,7 +142,7 @@ replace the room formulas of the generic theorems, which cover the arithmetic of
   (`MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT`, `131072` on mainnet), and one exit
   for each voluntary exit. `hroom` states it at the three limits the Rust passes. Two of its
   fields are not about room: an epoch has at least one slot, and `MIN_SEED_LOOKAHEAD` is below
-  `MAX_SEED_LOOKAHEAD`. `proposer_of_reachable` needs them.
+  `MAX_SEED_LOOKAHEAD`. EthLib's `Run.getBeaconProposerIndex_ok` needs them.
 - EthLib anchors reachability at a Phase 0 genesis state, and a run crosses the fork upgrades.
   `Run.invariant` holds from any first state with EthLib's `Invariant`.
   `Run.getBeaconProposerIndex_ok` is stated from a genesis state alone, so a statement from
@@ -199,7 +199,6 @@ succeeds from its checks. `EthLibOps` proves those.
 | `processOperations_of_holdsOnly` | `Operations.lean` | At Fulu, `processOperations` on a block body that holds the slashings and exits `ops` and no other operation is `processSlashingsAndExits` on `ops` |
 | `operationsRoom_mainnet`, `operationsRoom_minimal` | `Bounds.lean` | `OperationsRoom` holds at Fulu for the block limits of each preset, at a cap of `2^58` Gwei |
 | `balancesMatch_of_reachable` | `Bounds.lean` | A state that a run reaches from a genesis state has one balance for each validator. This is EthLib's `reachable_balancesMatch` |
-| `proposer_of_reachable` | `Bounds.lean` | From Fulu, a state that a run reaches from a genesis state has a proposer for its slot, and the proposer is a validator of the registry. This is EthLib's `Run.getBeaconProposerIndex_ok` |
 
 The proofs use these theorems of EthLib, among others: `slashValidator_total_of_room`,
 `slashValidator_ok`, `balance_slashValidator`, `isValidIndexedAttestation_of_keys`,
@@ -408,7 +407,7 @@ Both sit under `../deps`, which Git ignores. No script fetches them yet.
 - `ethlib/`: a checkout of [EthLib](https://github.com/ethereum/EthLib) on Lean v4.36.0, at
   commit `86e2ae69a` of the branch `proof/lookahead-active-past-gloas`. That is `master` at
   `31199cc3f` and one commit that is not upstream yet. The commit adds
-  `Run.getBeaconProposerIndex_ok`, which `proposer_of_reachable` calls. EthLib is pure Lean and
+  `Run.getBeaconProposerIndex_ok`, which the main theorem calls. EthLib is pure Lean and
   needs no native library.
 
 Aeneas and EthLib both require Mathlib `v4.36.0`, so the project has one copy. EthLib changes

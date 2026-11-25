@@ -40,7 +40,7 @@ The fields of `PackingState` and `PoolsValid` are the trusted base. `README.md` 
 
 Two facts about `s` are not premises, because they follow from `PackingState.reachable`: the
 state has one balance for each validator (`balancesMatch_of_reachable`), and the proposer of its
-slot is a validator of the registry (`proposer_of_reachable`).
+slot is a validator of the registry (EthLib's `Run.getBeaconProposerIndex_ok`).
 -/
 
 set_option autoImplicit false
@@ -123,8 +123,9 @@ theorem packed_slashings_and_exits_valid (hfork : IsFulu fork)
   -- The state facts the three packing theorems take.
   obtain ⟨g, hgenesis, ⟨hrun⟩⟩ := hstate.reachable
   -- The proposer of the slot is a validator of the registry, as `s` is reachable.
-  obtain ⟨p, hproposer, hproposerIn⟩ :=
-    proposer_of_reachable hfork.fulu hroom.slots hroom.seedLookahead hrun hgenesis
+  obtain ⟨p, hproposer, hproposerIn⟩ :
+      ∃ p, getBeaconProposerIndex s = .ok p ∧ p.toNat < s.validators.data.size :=
+    Run.getBeaconProposerIndex_ok hroom.slots hroom.seedLookahead hgenesis hrun hfork.fulu
   have hcorr := hstate.corr
   have hchurn := hroom.churn
   have hstateRoom : StateRoom config (2 ^ 58) p s := StateRoom.of_bounds hroom
