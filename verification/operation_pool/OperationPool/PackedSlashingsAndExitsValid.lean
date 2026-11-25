@@ -125,7 +125,7 @@ theorem packed_slashings_and_exits_valid (hfork : IsFulu fork)
   -- The proposer of the slot is a validator of the registry, as `s` is reachable.
   obtain ⟨p, hproposer, hproposerIn⟩ :
       ∃ p, getBeaconProposerIndex s = .ok p ∧ p.toNat < s.validators.data.size :=
-    Run.getBeaconProposerIndex_ok hroom.slots hroom.seedLookahead hgenesis hrun hfork.fulu
+    Run.getBeaconProposerIndex_ok hroom.slots hgenesis hrun hfork.fulu
   have hcorr := hstate.corr
   have hchurn := hroom.churn
   have hstateRoom : StateRoom config (2 ^ 58) p s := StateRoom.of_bounds hroom

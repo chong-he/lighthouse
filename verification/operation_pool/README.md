@@ -140,9 +140,9 @@ replace the room formulas of the generic theorems, which cover the arithmetic of
 - `OperationsRoom` reads constants alone. It counts one exit and one whistleblower reward for
   each proposer slashing and for each validator an attester slashing can name
   (`MAX_VALIDATORS_PER_COMMITTEE * MAX_COMMITTEES_PER_SLOT`, `131072` on mainnet), and one exit
-  for each voluntary exit. `hroom` states it at the three limits the Rust passes. Two of its
-  fields are not about room: an epoch has at least one slot, and `MIN_SEED_LOOKAHEAD` is below
-  `MAX_SEED_LOOKAHEAD`. EthLib's `Run.getBeaconProposerIndex_ok` needs them.
+  for each voluntary exit. `hroom` states it at the three limits the Rust passes. One of its
+  fields is not about room: an epoch has at least one slot. EthLib's
+  `Run.getBeaconProposerIndex_ok` needs it.
 - EthLib anchors reachability at a Phase 0 genesis state, and a run crosses the fork upgrades.
   `Run.invariant` holds from any first state with EthLib's `Invariant`.
   `Run.getBeaconProposerIndex_ok` is stated from a genesis state alone, so a statement from
@@ -492,19 +492,28 @@ files have to provide.
 
 ## Dependencies
 
-Both sit under `../deps`, which Git ignores. No script fetches them yet.
+Both sit under `../deps`, which Git ignores, and this repository holds neither. The Lean files
+of this directory are all that the repository adds.
 
 - `aeneas-release-2e3d448/`: the Aeneas release `nightly-2026.11.23-2e3d448`, on Lean v4.36.0,
   unpacked from `aeneas-linux-x86_64.tar.gz`. It bundles the `aeneas` and `charon` binaries and
   the Lean library.
 - `ethlib/`: a checkout of [EthLib](https://github.com/ethereum/EthLib) on Lean v4.36.0, at
-  commit `77061f63d` of the branch `proof/lookahead-active-past-gloas`. That is `master` at
-  `a42542228` and one commit that is not upstream yet. The commit adds
-  `Run.getBeaconProposerIndex_ok`, which the main theorem calls. EthLib is pure Lean and
-  needs no native library.
+  commit `24f2ccdae` of `master`. EthLib is pure Lean and needs no native library.
+
+No script fetches them yet. These commands do, from this directory:
+
+```sh
+mkdir -p ../deps/aeneas-release-2e3d448
+curl -L https://github.com/AeneasVerif/aeneas/releases/download/nightly-2026.11.23-2e3d448/aeneas-linux-x86_64.tar.gz \
+  | tar -xz -C ../deps/aeneas-release-2e3d448
+git clone https://github.com/ethereum/EthLib ../deps/ethlib
+git -C ../deps/ethlib checkout 24f2ccdaeb9fb79a4af73c794f856c17c84a16db
+```
 
 Aeneas and EthLib both require Mathlib `v4.36.0`, so the project has one copy. EthLib changes
-fast: a later commit can rename or restate the theorems that `EthLibOps` uses.
+fast: a later commit can rename or restate the theorems that `EthLibOps` uses, so the build is
+checked against that one commit.
 
 ## Regenerating and checking
 
