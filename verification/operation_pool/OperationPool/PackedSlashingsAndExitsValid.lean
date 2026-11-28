@@ -252,9 +252,11 @@ theorem packed_operations_valid (hfork : IsFulu fork)
   rw [processOperations_of_holdsOnly hfork holds]
   exact hrun
 
-/-- The limits of a block at Fulu, on the mainnet preset:
-`E::MaxProposerSlashings`, `E::max_attester_slashings_electra()` and `E::MaxVoluntaryExits`. -/
-def Limits.fulu : Limits := ⟨16#usize, 1#usize, 16#usize⟩
+-- Read the limits of mainnet parameters from the preset
+def Limits.mainnet : Limits :=
+  ⟨.ofNat Preset.mainnet.MAX_PROPOSER_SLASHINGS.toNat,
+   .ofNat (parameters Preset.mainnet .fusaka).MAX_ATTESTER_SLASHINGS.toNat,
+   .ofNat Preset.mainnet.MAX_VOLUNTARY_EXITS.toNat⟩
 
 /-- The main theorem on mainnet at Fulu. The room for the block is a fact about the mainnet
 constants, so it is not a premise. -/
@@ -263,9 +265,9 @@ theorem packed_slashings_and_exits_valid_mainnet
     (hfork: IsFulu (.fusaka : Base.Fork))
     (hstate : PackingState Config.mainnet checks hfork view s)
     (hpools : PoolsValid Config.mainnet checks s pools) :
-    ∃ packed s', getSlashingsAndExits view pools Limits.fulu = Aeneas.Std.Result.ok packed ∧
+    ∃ packed s', getSlashingsAndExits view pools Limits.mainnet = Aeneas.Std.Result.ok packed ∧
       processSlashingsAndExits Config.mainnet checks s packed.toSpec = .ok s' ∧
-      packed.WithinLimits Limits.fulu := by
+      packed.WithinLimits Limits.mainnet := by
   have hroom := operationsRoom_mainnet
   exact packed_slashings_and_exits_valid hfork hroom hstate hpools
 
